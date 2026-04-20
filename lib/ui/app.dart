@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sport_rent/ui/pages/registrar_canchas.dart';
-
+import 'package:sport_rent/controllers/auth_controller.dart';
+import 'package:sport_rent/controllers/cancha_controller.dart';
+import 'package:sport_rent/controllers/empresa_controller.dart';
+import 'package:sport_rent/controllers/reserva_controller.dart';
+import 'package:sport_rent/controllers/usuario_controller.dart';
+import 'package:sport_rent/ui/pages/home.dart';
+import 'package:sport_rent/ui/pages/home_admin.dart';
+import 'package:sport_rent/ui/pages/home_empresa.dart';
+import 'package:sport_rent/ui/pages/home_usuario.dart';
+import 'package:sport_rent/ui/pages/login.dart';
+import 'package:sport_rent/ui/pages/register.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -10,20 +19,42 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Material App',
-      home: RegistrarCancha(), 
+      title: 'SportRent',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
         inputDecorationTheme: InputDecorationTheme(
-          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.green, width: 2), borderRadius: BorderRadius.circular(15)),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.green, width: 2),
+            borderRadius: BorderRadius.circular(15),
+          ),
           floatingLabelStyle: const TextStyle(color: Colors.green),
-          
+        ),
+      ),
+      initialBinding: _AppBindings(),
+      initialRoute: '/home',
+      getPages: [
+        GetPage(name: '/home', page: () => const Home()),
+        GetPage(name: '/login', page: () => Login()),
+        GetPage(name: '/register', page: () => Register()),
+        GetPage(
+          name: '/home-usuario',
+          page: () => HomeUsuario(nombreUsuario: Get.find<AuthController>().nombre),
+        ),
+        GetPage(name: '/home-empresa', page: () => const HomeEmpresa()),
+        GetPage(name: '/home-admin', page: () => const HomeAdmin()),
+      ],
+    );
+  }
+}
 
-
-
-        )
-      ), 
-      );
+class _AppBindings extends Bindings {
+  @override
+  void dependencies() {
+    Get.put(AuthController(), permanent: true);
+    Get.put(CanchaController(), permanent: true);
+    Get.put(ReservaController(), permanent: true);
+    Get.put(UsuarioController(), permanent: true);
+    Get.put(EmpresaController(), permanent: true);
   }
 }
