@@ -3,7 +3,7 @@ class Notificacion {
   final String usuarioId;
   final String titulo;
   final String mensaje;
-  final String tipo; // 'reserva' | 'pago' | 'cancelacion' | 'sistema'
+  final String tipo; 
   bool leida;
   final DateTime fecha;
 

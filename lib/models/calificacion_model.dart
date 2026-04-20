@@ -3,7 +3,7 @@ class Calificacion {
   final String usuarioId;
   final String canchaId;
   final String reservaId;
-  final int puntuacion; // 1 - 5
+  final int puntuacion;
   final String comentario;
   final DateTime fecha;
 

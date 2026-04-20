@@ -3,8 +3,8 @@ class Usuario {
   final String nombre;
   final String email;
   final String telefono;
-  final String fotoUrl;
-  final String rol; // 'cliente' | 'empresa' | 'admin'
+  final String rol;
+  final String? empresaId; 
   final DateTime fechaRegistro;
   bool activo;
 
@@ -13,8 +13,8 @@ class Usuario {
     required this.nombre,
     required this.email,
     required this.telefono,
-    this.fotoUrl = '',
     this.rol = 'cliente',
+    this.empresaId,
     this.activo = true,
     DateTime? fechaRegistro,
   }) : fechaRegistro = fechaRegistro ?? DateTime.now();
@@ -24,8 +24,8 @@ class Usuario {
     'nombre': nombre,
     'email': email,
     'telefono': telefono,
-    'fotoUrl': fotoUrl,
     'rol': rol,
+    'empresaId': empresaId,
     'activo': activo,
     'fechaRegistro': fechaRegistro.toIso8601String(),
   };
@@ -35,8 +35,8 @@ class Usuario {
     nombre: json['nombre'],
     email: json['email'],
     telefono: json['telefono'] ?? '',
-    fotoUrl: json['fotoUrl'] ?? '',
     rol: json['rol'] ?? 'cliente',
+    empresaId: json['empresaId'],
     activo: json['activo'] ?? true,
     fechaRegistro: DateTime.parse(json['fechaRegistro']),
   );

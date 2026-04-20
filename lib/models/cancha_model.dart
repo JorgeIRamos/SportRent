@@ -2,7 +2,7 @@ class Cancha {
   final String id;
   final String empresaId;
   final String nombre;
-  final String tipoDeporte; // 'futbol' | 'baloncesto' | 'tenis' | 'voleibol'
+  final String tipoDeporte;
   final String descripcion;
   final double precioPorHora;
   final String direccion;

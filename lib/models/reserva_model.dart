@@ -6,7 +6,7 @@ class Reserva {
   final String horaInicio;
   final String horaFin;
   final double montoTotal;
-  String estado; // 'pendiente' | 'confirmada' | 'cancelada' | 'expirada'
+  String estado; 
   final DateTime fechaCreacion;
   final DateTime fechaExpiracion;
 
