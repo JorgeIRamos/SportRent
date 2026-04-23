@@ -177,60 +177,6 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
       return Column(
         children: [
           _buildResumen(canchas, reservasHoy),
-          if (!_empresaCtrl.estaVerificada)
-            Container(
-              width: double.infinity,
-              margin: EdgeInsets.fromLTRB(16, 12, 16, 0),
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.green[50]!),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 14,
-                    offset: Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.orange[700]),
-                      SizedBox(width: 10),
-                      Text(
-                        'Estado de verificación',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Tu empresa aún no ha sido aprobada por un administrador. Hasta entonces no puedes registrar canchas ni gestionar reservas.',
-                    style: TextStyle(color: Colors.grey[800], fontSize: 13, height: 1.4),
-                  ),
-                  SizedBox(height: 14),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange[50],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Pendiente de aprobación',
-                      style: TextStyle(color: Colors.orange[900], fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           _buildEncabezado(),
           Expanded(
             child: canchas.isEmpty
@@ -277,6 +223,56 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (!_empresaCtrl.estaVerificada)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.hourglass_top, color: Colors.orange[800], size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Pendiente de aprobación',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.orange[900],
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Tu empresa aún no ha sido aprobada. No puedes registrar canchas ni gestionar reservas.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange[800],
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: TextField(
