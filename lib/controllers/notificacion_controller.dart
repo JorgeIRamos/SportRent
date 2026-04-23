@@ -8,14 +8,17 @@ class NotificacionController extends GetxController {
   final RxList<Notificacion> notificaciones = <Notificacion>[].obs;
   final RxBool isLoading = false.obs;
   final RxString error = ''.obs;
+  final RxString _usuarioActualId = ''.obs;
 
   int get totalNoLeidas => notificaciones.where((n) => !n.leida).length;
   bool get hayNoLeidas => totalNoLeidas > 0;
+  String get usuarioActualId => _usuarioActualId.value;
 
   Future<void> cargarNotificaciones(String usuarioId) async {
     try {
       isLoading.value = true;
       error.value = '';
+      _usuarioActualId.value = usuarioId;
 
       notificaciones.assignAll(
         await _notificacionService.obtenerPorUsuario(usuarioId),
@@ -67,10 +70,14 @@ class NotificacionController extends GetxController {
   Future<void> crearNotificacion(Notificacion notificacion) async {
     try {
       final id = await _notificacionService.crearNotificacion(notificacion);
-      notificaciones.insert(0, Notificacion.fromJson({
-        ...notificacion.toJson(),
-        'id': id,
-      }));
+      // Solo insertar localmente si la notificación pertenece al usuario cargado.
+      // Evita que, por ejemplo, la empresa vea notificaciones del cliente en su UI.
+      if (notificacion.usuarioId == _usuarioActualId.value) {
+        notificaciones.insert(0, Notificacion.fromJson({
+          ...notificacion.toJson(),
+          'id': id,
+        }));
+      }
     } catch (e) {
       error.value = 'Error al crear notificación';
     }

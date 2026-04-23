@@ -14,11 +14,12 @@ class CalificacionService {
     final snap = await _db
         .collection(_col)
         .where('canchaId', isEqualTo: canchaId)
-        .orderBy('fecha', descending: true)
         .get();
-    return snap.docs
+    final lista = snap.docs
         .map((d) => Calificacion.fromJson({...d.data(), 'id': d.id}))
         .toList();
+    lista.sort((a, b) => b.fecha.compareTo(a.fecha));
+    return lista;
   }
 
   Future<List<Calificacion>> obtenerPorUsuario(String usuarioId) async {

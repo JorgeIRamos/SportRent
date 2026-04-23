@@ -5,8 +5,10 @@ import 'package:get/get.dart';
 import 'package:sport_rent/controllers/auth_controller.dart';
 import 'package:sport_rent/controllers/cancha_controller.dart';
 import 'package:sport_rent/controllers/empresa_controller.dart';
+import 'package:sport_rent/controllers/notificacion_controller.dart';
 import 'package:sport_rent/controllers/reserva_controller.dart';
 import 'package:sport_rent/models/cancha_model.dart';
+import 'package:sport_rent/models/notificacion_model.dart';
 import 'package:sport_rent/models/reserva_model.dart';
 import 'package:sport_rent/ui/pages/home.dart';
 import 'package:sport_rent/ui/pages/registrar_canchas.dart';
@@ -22,11 +24,11 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
   final TextEditingController _buscarCtrl = TextEditingController();
   String? _deporteSeleccionado;
   int _navIndex = 0;
-  int _notificacionesSinLeer = 3;
 
   late final CanchaController _canchaCtrl;
   late final ReservaController _reservaCtrl;
   late final EmpresaController _empresaCtrl;
+  late final NotificacionController _notificacionCtrl;
 
   final List<String> _deportes = ['Fútbol', 'Baloncesto', 'Tenis', 'Pádel', 'Voleibol', 'Béisbol'];
 
@@ -54,12 +56,16 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
     _canchaCtrl = Get.find<CanchaController>();
     _reservaCtrl = Get.find<ReservaController>();
     _empresaCtrl = Get.find<EmpresaController>();
+    _notificacionCtrl = Get.find<NotificacionController>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final empresaId = Get.find<AuthController>().empresaId;
+      final auth = Get.find<AuthController>();
+      final empresaId = auth.empresaId;
+      final uid = auth.usuario.value?.id ?? '';
       if (empresaId.isEmpty) return;
       _canchaCtrl.cargarCanchas(empresaId: empresaId);
       _reservaCtrl.cargarReservasEmpresa(empresaId);
       _empresaCtrl.cargarEmpresa(empresaId);
+      if (uid.isNotEmpty) _notificacionCtrl.cargarNotificaciones(uid);
     });
   }
 
@@ -88,7 +94,7 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
         backgroundColor: Colors.green[100],
         foregroundColor: Colors.black,
         elevation: 0,
-        title: Column(
+        title: Obx(() => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(_appBarTitle,
@@ -113,7 +119,7 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
                 ],
               ),
           ],
-        ),
+        )),
         actions: [
           Stack(
             children: [
@@ -121,23 +127,26 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
                 icon: Icon(Icons.notifications_outlined, color: Colors.black),
                 onPressed: () => _mostrarNotificaciones(context),
               ),
-              if (_notificacionesSinLeer > 0)
-                Positioned(
+              Obx(() {
+                final n = _notificacionCtrl.totalNoLeidas;
+                if (n <= 0) return const SizedBox.shrink();
+                return Positioned(
                   right: 8,
                   top: 8,
                   child: Container(
                     padding: EdgeInsets.all(3),
                     decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                    child: Text('$_notificacionesSinLeer',
+                    child: Text('$n',
                         style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
-                ),
+                );
+              }),
             ],
           ),
         ],
       ),
       body: _buildBody(),
-      floatingActionButton: _navIndex == 0 && _empresaCtrl.estaVerificada
+      floatingActionButton: Obx(() => _navIndex == 0 && _empresaCtrl.estaVerificada
           ? FloatingActionButton.extended(
               onPressed: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const RegistrarCancha())),
@@ -146,7 +155,7 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
               icon: Icon(Icons.add),
               label: Text('Añadir cancha', style: TextStyle(fontWeight: FontWeight.bold)),
             )
-          : null,
+          : const SizedBox.shrink()),
       bottomNavigationBar: _buildNavBar(),
     );
   }
@@ -403,7 +412,7 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
   // ── NOTIFICACIONES ────────────────────────────────────────────────────────
 
   void _mostrarNotificaciones(BuildContext context) {
-    setState(() => _notificacionesSinLeer = 0);
+    _notificacionCtrl.marcarTodasLeidas();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -425,36 +434,71 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
                   Icon(Icons.notifications, color: Colors.green[700]),
                   SizedBox(width: 8),
                   Text('Notificaciones', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  Obx(() {
+                    final cargando = _notificacionCtrl.isLoading.value;
+                    return IconButton(
+                      tooltip: 'Recargar',
+                      onPressed: cargando
+                          ? null
+                          : () {
+                              final uid = Get.find<AuthController>().usuario.value?.id ?? '';
+                              if (uid.isNotEmpty) _notificacionCtrl.cargarNotificaciones(uid);
+                            },
+                      icon: cargando
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green),
+                            )
+                          : Icon(Icons.refresh, size: 20, color: Colors.grey[700]),
+                    );
+                  }),
                 ],
               ),
             ),
             Divider(height: 20),
             Expanded(
-              child: ListView(
-                controller: controller,
-                children: const [
-                  _NotifItem(icono: Icons.calendar_today, color: Colors.green,
-                      titulo: 'Nueva reserva confirmada',
-                      subtitulo: 'Carlos Pérez reservó Cancha Fútbol 5 · Hoy 15:00',
-                      tiempo: 'Hace 5 min'),
-                  _NotifItem(icono: Icons.star, color: Colors.amber,
-                      titulo: 'Nueva calificación recibida',
-                      subtitulo: 'Recibiste 5 estrellas en Cancha Fútbol 11',
-                      tiempo: 'Hace 1 h'),
-                  _NotifItem(icono: Icons.cancel_outlined, color: Colors.red,
-                      titulo: 'Reserva cancelada',
-                      subtitulo: 'Ana Torres canceló su reserva para mañana 10:00',
-                      tiempo: 'Hace 2 h'),
-                  _NotifItem(icono: Icons.payments_outlined, color: Colors.teal,
-                      titulo: 'Pago recibido',
-                      subtitulo: 'Se acreditaron \$450.000 por reserva #1023',
-                      tiempo: 'Ayer'),
-                  _NotifItem(icono: Icons.info_outline, color: Colors.blue,
-                      titulo: 'Recuerda completar tu perfil',
-                      subtitulo: 'Agrega el logo de tu empresa para mayor visibilidad',
-                      tiempo: 'Hace 2 días'),
-                ],
-              ),
+              child: Obx(() {
+                final err = _notificacionCtrl.error.value;
+                final lista = _notificacionCtrl.notificaciones;
+
+                if (err.isNotEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(err, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700])),
+                    ),
+                  );
+                }
+
+                if (_notificacionCtrl.isLoading.value && lista.isEmpty) {
+                  return const Center(child: CircularProgressIndicator(color: Colors.green));
+                }
+
+                if (lista.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.notifications_none, size: 58, color: Colors.grey[350]),
+                        SizedBox(height: 10),
+                        Text('No tienes notificaciones',
+                            style: TextStyle(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  controller: controller,
+                  itemCount: lista.length,
+                  itemBuilder: (_, i) => _NotifItemFromModel(
+                    notificacion: lista[i],
+                    onTap: () => _notificacionCtrl.marcarLeida(lista[i].id),
+                  ),
+                );
+              }),
             ),
           ],
         ),
@@ -1643,39 +1687,93 @@ class _OpcionItem extends StatelessWidget {
   }
 }
 
-class _NotifItem extends StatelessWidget {
-  final IconData icono;
-  final Color color;
-  final String titulo;
-  final String subtitulo;
-  final String tiempo;
+class _NotifItemFromModel extends StatelessWidget {
+  final Notificacion notificacion;
+  final VoidCallback onTap;
 
-  const _NotifItem(
-      {required this.icono,
-      required this.color,
-      required this.titulo,
-      required this.subtitulo,
-      required this.tiempo});
+  const _NotifItemFromModel({required this.notificacion, required this.onTap});
+
+  IconData _icono(String tipo) {
+    switch (tipo.toLowerCase()) {
+      case 'reserva':
+        return Icons.calendar_today_outlined;
+      case 'calificacion':
+        return Icons.star_outline;
+      case 'pago':
+        return Icons.payments_outlined;
+      default:
+        return Icons.notifications_outlined;
+    }
+  }
+
+  Color _color(String tipo) {
+    switch (tipo.toLowerCase()) {
+      case 'reserva':
+        return Colors.green;
+      case 'calificacion':
+        return Colors.amber;
+      case 'pago':
+        return Colors.teal;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  String _tiempoRelativo(DateTime fecha) {
+    final diff = DateTime.now().difference(fecha);
+    if (diff.inMinutes < 1) return 'Ahora';
+    if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'Hace ${diff.inHours} h';
+    if (diff.inDays == 1) return 'Ayer';
+    return 'Hace ${diff.inDays} días';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        padding: EdgeInsets.all(8),
-        decoration:
-            BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-        child: Icon(icono, color: color, size: 20),
+    final color = _color(notificacion.tipo);
+    final icono = _icono(notificacion.tipo);
+    final esNoLeida = !notificacion.leida;
+
+    return Container(
+      color: esNoLeida ? Colors.green.withValues(alpha: 0.06) : Colors.transparent,
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          padding: EdgeInsets.all(8),
+          decoration:
+              BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icono, color: color, size: 20),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                notificacion.titulo,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: esNoLeida ? FontWeight.w700 : FontWeight.w600,
+                ),
+              ),
+            ),
+            if (esNoLeida)
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(notificacion.mensaje, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            SizedBox(height: 2),
+            Text(_tiempoRelativo(notificacion.fecha),
+                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+          ],
+        ),
+        isThreeLine: true,
       ),
-      title: Text(titulo, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(subtitulo, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-          SizedBox(height: 2),
-          Text(tiempo, style: TextStyle(fontSize: 11, color: Colors.grey[400])),
-        ],
-      ),
-      isThreeLine: true,
     );
   }
 }
@@ -1772,10 +1870,8 @@ class _CanchaEmpresaCard extends StatelessWidget {
                           style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
                     ),
                     SizedBox(width: 10),
-                    Icon(Icons.star, size: 13, color: Colors.amber[600]),
-                    SizedBox(width: 3),
-                    Text(cancha.calificacionPromedio.toStringAsFixed(1),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                    CalificacionEstrellas(
+                        rating: cancha.calificacionPromedio, size: 13),
                     SizedBox(width: 10),
                     Icon(Icons.schedule_outlined, size: 13, color: Colors.grey[600]),
                     SizedBox(width: 3),

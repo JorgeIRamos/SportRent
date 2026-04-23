@@ -14,11 +14,13 @@ class NotificacionService {
     final snap = await _db
         .collection(_col)
         .where('usuarioId', isEqualTo: usuarioId)
-        .orderBy('fecha', descending: true)
         .get();
-    return snap.docs
+    final lista = snap.docs
         .map((d) => Notificacion.fromJson({...d.data(), 'id': d.id}))
         .toList();
+    // Ordenar localmente evita requerir índices/constraints de Firestore.
+    lista.sort((a, b) => b.fecha.compareTo(a.fecha));
+    return lista;
   }
 
   Future<List<Notificacion>> obtenerNoLeidas(String usuarioId) async {
@@ -27,9 +29,11 @@ class NotificacionService {
         .where('usuarioId', isEqualTo: usuarioId)
         .where('leida', isEqualTo: false)
         .get();
-    return snap.docs
+    final lista = snap.docs
         .map((d) => Notificacion.fromJson({...d.data(), 'id': d.id}))
         .toList();
+    lista.sort((a, b) => b.fecha.compareTo(a.fecha));
+    return lista;
   }
 
   Future<void> actualizarNotificacion(

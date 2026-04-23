@@ -20,22 +20,24 @@ class ReservaService {
     final snap = await _db
         .collection(_col)
         .where('usuarioId', isEqualTo: usuarioId)
-        .orderBy('fecha', descending: true)
         .get();
-    return snap.docs
+    final lista = snap.docs
         .map((d) => Reserva.fromJson({...d.data(), 'id': d.id}))
         .toList();
+    lista.sort((a, b) => b.fecha.compareTo(a.fecha));
+    return lista;
   }
 
   Future<List<Reserva>> obtenerPorCancha(String canchaId) async {
     final snap = await _db
         .collection(_col)
         .where('canchaId', isEqualTo: canchaId)
-        .orderBy('fecha', descending: true)
         .get();
-    return snap.docs
+    final lista = snap.docs
         .map((d) => Reserva.fromJson({...d.data(), 'id': d.id}))
         .toList();
+    lista.sort((a, b) => b.fecha.compareTo(a.fecha));
+    return lista;
   }
 
   Future<List<Reserva>> obtenerPorCanchaYFecha(String canchaId, String fechaDia) async {
@@ -55,11 +57,12 @@ class ReservaService {
     final snap = await _db
         .collection(_col)
         .where('canchaId', whereIn: canchaIds)
-        .orderBy('fecha', descending: true)
         .get();
-    return snap.docs
+    final lista = snap.docs
         .map((d) => Reserva.fromJson({...d.data(), 'id': d.id}))
         .toList();
+    lista.sort((a, b) => b.fecha.compareTo(a.fecha));
+    return lista;
   }
 
   Future<void> actualizarReserva(String id, Map<String, dynamic> datos) async {

@@ -528,10 +528,8 @@ class _CanchaCardState extends State<CanchaCard> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.star, size: 14, color: Colors.amber[600]),
-                    const SizedBox(width: 3),
-                    Text(widget.cancha.calificacionPromedio.toStringAsFixed(1),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                    CalificacionEstrellas(
+                        rating: widget.cancha.calificacionPromedio, size: 14),
                     const SizedBox(width: 12),
                     Icon(Icons.sports_outlined, size: 14, color: color),
                     const SizedBox(width: 3),
@@ -659,6 +657,50 @@ class _CanchaCardState extends State<CanchaCard> {
       color: color.withValues(alpha: 0.15),
       child: Center(
           child: Icon(icono, size: 72, color: color.withValues(alpha: 0.4))),
+    );
+  }
+}
+
+// ── Reutilizable en cualquier pantalla ────────────────────────────────────────
+class CalificacionEstrellas extends StatelessWidget {
+  final double rating;
+  final double size;
+
+  const CalificacionEstrellas({super.key, required this.rating, this.size = 13});
+
+  @override
+  Widget build(BuildContext context) {
+    if (rating == 0.0) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ...List.generate(5, (_) =>
+              Icon(Icons.star_border_rounded, size: size, color: Colors.grey[350])),
+          const SizedBox(width: 4),
+          Text('Nuevo',
+              style: TextStyle(fontSize: size - 1, color: Colors.grey[500])),
+        ],
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...List.generate(5, (i) {
+          if (rating >= i + 1) {
+            return Icon(Icons.star_rounded, size: size, color: Colors.amber[600]);
+          }
+          if (rating >= i + 0.5) {
+            return Icon(Icons.star_half_rounded, size: size, color: Colors.amber[600]);
+          }
+          return Icon(Icons.star_border_rounded, size: size, color: Colors.grey[350]);
+        }),
+        const SizedBox(width: 4),
+        Text(rating.toStringAsFixed(1),
+            style: TextStyle(
+                fontSize: size - 1,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700])),
+      ],
     );
   }
 }

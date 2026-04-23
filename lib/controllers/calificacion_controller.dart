@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:sport_rent/controllers/cancha_controller.dart';
 import 'package:sport_rent/models/calificacion_model.dart';
 import 'package:sport_rent/services/calificacion_service.dart';
 import 'package:sport_rent/services/cancha_service.dart';
@@ -69,11 +70,18 @@ class CalificacionController extends GetxController {
         comentario: comentario,
       );
 
-      final id = await _calificacionService.crearCalificacion(nueva);
-      calificaciones.insert(0, Calificacion.fromJson({...nueva.toJson(), 'id': id}));
+      await _calificacionService.crearCalificacion(nueva);
+
+      // Carga todas las calificaciones existentes + la nueva para calcular
+      // el promedio correcto (evita usar solo las cargadas en memoria)
+      final todas = await _calificacionService.obtenerPorCancha(canchaId);
+      calificaciones.assignAll(todas);
 
       final nuevoPromedio = promedioActual;
       await _canchaService.actualizarCalificacion(canchaId, nuevoPromedio);
+
+      // Actualiza la tarjeta en pantalla sin recargar la lista completa
+      Get.find<CanchaController>().actualizarCalificacionLocal(canchaId, nuevoPromedio);
 
       Get.snackbar('Gracias', 'Tu calificación fue enviada',
           backgroundColor: Colors.green[100], colorText: Colors.black87);

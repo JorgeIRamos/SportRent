@@ -116,5 +116,13 @@ class CanchaController extends GetxController {
     }
   }
 
+  void actualizarCalificacionLocal(String canchaId, double promedio) {
+    final index = canchas.indexWhere((c) => c.id == canchaId);
+    if (index != -1) {
+      canchas[index].calificacionPromedio = promedio;
+      canchas.refresh();
+    }
+  }
+
   void limpiarError() => error.value = '';
 }

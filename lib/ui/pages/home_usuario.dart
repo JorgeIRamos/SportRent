@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sport_rent/controllers/auth_controller.dart';
+import 'package:sport_rent/controllers/calificacion_controller.dart';
 import 'package:sport_rent/controllers/cancha_controller.dart';
 import 'package:sport_rent/controllers/favorito_controller.dart';
+import 'package:sport_rent/controllers/notificacion_controller.dart';
 import 'package:sport_rent/controllers/reserva_controller.dart';
 import 'package:sport_rent/models/cancha_model.dart';
+import 'package:sport_rent/models/notificacion_model.dart';
 import 'package:sport_rent/models/reserva_model.dart';
 import 'package:sport_rent/ui/pages/home.dart';
 
@@ -22,10 +25,12 @@ class _HomeUsuarioState extends State<HomeUsuario> {
   final _favoritoCtrl = Get.find<FavoritoController>();
   final _reservaCtrl = Get.find<ReservaController>();
   final _authCtrl = Get.find<AuthController>();
+  final _notificacionCtrl = Get.find<NotificacionController>();
   final _buscarCtrl = TextEditingController();
 
   bool _soloFavoritos = false;
   int _navIndex = 0;
+  Worker? _uidWorker;
 
   static const _deportes = ['Fútbol', 'Baloncesto', 'Tenis', 'Pádel', 'Voleibol', 'Béisbol'];
 
@@ -35,14 +40,24 @@ class _HomeUsuarioState extends State<HomeUsuario> {
     _canchaCtrl.cargarCanchas();
     final uid = _authCtrl.usuario.value?.id ?? '';
     if (uid.isNotEmpty) {
-      _favoritoCtrl.cargarFavoritos(uid);
-      _reservaCtrl.cargarReservasUsuario(uid);
+      _cargarDatosUsuario(uid);
+    } else {
+      _uidWorker = once(_authCtrl.usuario, (u) {
+        if (u != null) _cargarDatosUsuario(u.id);
+      });
     }
+  }
+
+  void _cargarDatosUsuario(String uid) {
+    _favoritoCtrl.cargarFavoritos(uid);
+    _reservaCtrl.cargarReservasUsuario(uid);
+    _notificacionCtrl.cargarNotificaciones(uid);
   }
 
   @override
   void dispose() {
     _buscarCtrl.dispose();
+    _uidWorker?.dispose();
     super.dispose();
   }
 
@@ -107,27 +122,138 @@ class _HomeUsuarioState extends State<HomeUsuario> {
                 style: const TextStyle(
                     fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () => setState(() => _navIndex = 2),
-              child: CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.green[300],
-                child: Text(
-                  widget.nombreUsuario.isNotEmpty
-                      ? widget.nombreUsuario[0].toUpperCase()
-                      : 'U',
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold),
-                ),
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: Colors.black),
+                onPressed: () => _mostrarNotificaciones(context),
               ),
-            ),
+              Obx(() {
+                final n = _notificacionCtrl.totalNoLeidas;
+                if (n <= 0) return const SizedBox.shrink();
+                return Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    child: Text(
+                      '$n',
+                      style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                );
+              }),
+            ],
           ),
         ],
       ),
       body: _buildBody(),
       bottomNavigationBar: _buildNavBar(),
+    );
+  }
+
+  // ── NOTIFICACIONES ──────────────────────────────────────────────────────────
+
+  void _mostrarNotificaciones(BuildContext context) {
+    _notificacionCtrl.marcarTodasLeidas();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        builder: (_, controller) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.notifications, color: Colors.green[700]),
+                  const SizedBox(width: 8),
+                  const Text('Notificaciones', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  Obx(() {
+                    final cargando = _notificacionCtrl.isLoading.value;
+                    return IconButton(
+                      tooltip: 'Recargar',
+                      onPressed: cargando
+                          ? null
+                          : () {
+                              final uid = _authCtrl.usuario.value?.id ?? '';
+                              if (uid.isNotEmpty) _notificacionCtrl.cargarNotificaciones(uid);
+                            },
+                      icon: cargando
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green),
+                            )
+                          : Icon(Icons.refresh, size: 20, color: Colors.grey[700]),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            const Divider(height: 20),
+            Expanded(
+              child: Obx(() {
+                final err = _notificacionCtrl.error.value;
+                final lista = _notificacionCtrl.notificaciones;
+
+                if (err.isNotEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(err, textAlign: TextAlign.center, style: TextStyle(color: Colors.red[700])),
+                    ),
+                  );
+                }
+
+                if (_notificacionCtrl.isLoading.value && lista.isEmpty) {
+                  return const Center(child: CircularProgressIndicator(color: Colors.green));
+                }
+
+                if (lista.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.notifications_none, size: 58, color: Colors.grey[350]),
+                        const SizedBox(height: 10),
+                        Text(
+                          'No tienes notificaciones',
+                          style: TextStyle(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  controller: controller,
+                  itemCount: lista.length,
+                  itemBuilder: (_, i) => _NotifItemFromModel(
+                    notificacion: lista[i],
+                    onTap: () => _notificacionCtrl.marcarLeida(lista[i].id),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -511,9 +637,8 @@ class _ReservasTab extends StatelessWidget {
     return Obx(() {
       final reservas = reservaCtrl.reservas;
       final filtradas = reservaCtrl.reservasFiltradas;
-      final proximas =
-          reservas.where((r) => r.estado == 'confirmada' || r.estado == 'pendiente').length;
-      final completadas = reservas.where((r) => r.estado == 'completada').length;
+      final proximas = reservas.where((r) => r.estado == 'confirmada').length;
+      final completadas = reservas.where((r) => r.estado == 'pendiente').length;
 
       return Column(
         children: [
@@ -527,16 +652,16 @@ class _ReservasTab extends StatelessWidget {
                   children: [
                     _MiniResumenCard(
                       valor: '$proximas',
-                      label: 'Próximas',
+                      label: 'Confirmadas',
                       color: Colors.green[700]!,
-                      icono: Icons.upcoming_outlined,
+                      icono: Icons.check_circle_outline,
                     ),
                     const SizedBox(width: 10),
                     _MiniResumenCard(
                       valor: '$completadas',
-                      label: 'Completadas',
-                      color: Colors.blue[600]!,
-                      icono: Icons.sports_score,
+                      label: 'Pendientes',
+                      color: Colors.orange[600]!,
+                      icono: Icons.hourglass_empty,
                     ),
                     const SizedBox(width: 10),
                     _MiniResumenCard(
@@ -555,7 +680,7 @@ class _ReservasTab extends StatelessWidget {
                       'Todas',
                       'Confirmada',
                       'Pendiente',
-                      'Completada',
+                      'Rechazada',
                       'Cancelada'
                     ].map((f) {
                       final sel = reservaCtrl.filtroEstado.value == f;
@@ -640,7 +765,7 @@ class _ReservasTab extends StatelessWidget {
   }
 }
 
-class _ReservaCard extends StatelessWidget {
+class _ReservaCard extends StatefulWidget {
   final Reserva reserva;
   final ReservaController reservaCtrl;
   final Color Function(String) colorEstado;
@@ -662,9 +787,99 @@ class _ReservaCard extends StatelessWidget {
   });
 
   @override
+  State<_ReservaCard> createState() => _ReservaCardState();
+}
+
+class _ReservaCardState extends State<_ReservaCard> {
+  final _calificacionCtrl = Get.find<CalificacionController>();
+  final _authCtrl = Get.find<AuthController>();
+
+  bool _yaCalificada = false;
+  bool _verificando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarCalificacion();
+  }
+
+  Future<void> _verificarCalificacion() async {
+    final estado = widget.reserva.estado;
+    if (estado != 'confirmada' && estado != 'completada') {
+      if (mounted) setState(() => _verificando = false);
+      return;
+    }
+    final uid = _authCtrl.usuario.value?.id ?? '';
+    if (uid.isEmpty) {
+      if (mounted) setState(() => _verificando = false);
+      return;
+    }
+    final ya = await _calificacionCtrl.yaCalificada(uid, widget.reserva.id);
+    if (mounted) setState(() { _yaCalificada = ya; _verificando = false; });
+  }
+
+  void _abrirCalificacion() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CalificacionSheet(
+        reserva: widget.reserva,
+        calificacionCtrl: _calificacionCtrl,
+        authCtrl: _authCtrl,
+        onCalificado: () {
+          if (mounted) setState(() => _yaCalificada = true);
+        },
+      ),
+    );
+  }
+
+  Widget _botonCalificar() {
+    if (_verificando) return const Expanded(child: SizedBox.shrink());
+    if (_yaCalificada) {
+      return Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: Colors.amber[50],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.amber[200]!),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.star_rounded, size: 15, color: Colors.amber[700]),
+              const SizedBox(width: 6),
+              Text('Ya calificado',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.amber[800])),
+            ],
+          ),
+        ),
+      );
+    }
+    return Expanded(
+      child: ElevatedButton.icon(
+        onPressed: _abrirCalificacion,
+        icon: const Icon(Icons.star_outline, size: 15),
+        label: const Text('Calificar'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.amber[400],
+          foregroundColor: Colors.black87,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final estado = reserva.estado;
-    final c = colorEstado(estado);
+    final estado = widget.reserva.estado;
+    final c = widget.colorEstado(estado);
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       decoration: BoxDecoration(
@@ -701,14 +916,14 @@ class _ReservaCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        reserva.nombreCancha ?? 'Cancha',
+                        widget.reserva.nombreCancha ?? 'Cancha',
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                             color: Colors.black87),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text('Reserva #${reserva.id.substring(0, 6)}',
+                      Text('Reserva #${widget.reserva.id.substring(0, 6)}',
                           style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                     ],
                   ),
@@ -716,14 +931,14 @@ class _ReservaCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                      color: bgEstado(estado),
+                      color: widget.bgEstado(estado),
                       borderRadius: BorderRadius.circular(20)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(iconEstado(estado), size: 12, color: c),
+                      Icon(widget.iconEstado(estado), size: 12, color: c),
                       const SizedBox(width: 4),
-                      Text(labelEstado(estado),
+                      Text(widget.labelEstado(estado),
                           style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -744,11 +959,11 @@ class _ReservaCard extends StatelessWidget {
                         size: 14, color: Colors.grey[500]),
                     const SizedBox(width: 6),
                     Text(
-                      '${formatFecha(reserva.fecha)}  ·  ${reserva.horaInicio} – ${reserva.horaFin}',
+                      '${widget.formatFecha(widget.reserva.fecha)}  ·  ${widget.reserva.horaInicio} – ${widget.reserva.horaFin}',
                       style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                     ),
                     const Spacer(),
-                    Text('\$${fmt(reserva.montoTotal)}',
+                    Text('\$${widget.fmt(widget.reserva.montoTotal)}',
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -756,109 +971,333 @@ class _ReservaCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    if (estado == 'confirmada' || estado == 'pendiente') ...[
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () =>
-                              reservaCtrl.cancelarReserva(reserva.id),
-                          icon: const Icon(Icons.cancel_outlined, size: 15),
-                          label: const Text('Cancelar'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red[600],
-                            side: BorderSide(color: Colors.red[200]!),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 9),
-                          ),
+                // ── Botones según estado ──────────────────────────────────
+                if (estado == 'pendiente') ...[
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            widget.reservaCtrl.cancelarReserva(widget.reserva.id),
+                        icon: const Icon(Icons.cancel_outlined, size: 15),
+                        label: const Text('Cancelar'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red[600],
+                          side: BorderSide(color: Colors.red[200]!),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 9),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final canchaController = Get.find<CanchaController>();
-                            final cancha = await canchaController.obtenerCanchaPorId(reserva.canchaId);
-                            if (cancha != null) {
-                              Get.toNamed('/disponibilidad', arguments: cancha);
-                            } else {
-                              Get.snackbar(
-                                'Cancha no encontrada',
-                                'No se encontró la cancha asociada a esta reserva.',
-                                backgroundColor: Colors.red[50],
-                                colorText: Colors.red[700],
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.map_outlined, size: 15),
-                          label: const Text('Ver cancha'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.greenAccent[400],
-                            foregroundColor: Colors.black87,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 9),
-                          ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final cancha = await Get.find<CanchaController>()
+                              .obtenerCanchaPorId(widget.reserva.canchaId);
+                          if (cancha != null) {
+                            Get.toNamed('/disponibilidad', arguments: cancha);
+                          }
+                        },
+                        icon: const Icon(Icons.map_outlined, size: 15),
+                        label: const Text('Ver cancha'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.greenAccent[400],
+                          foregroundColor: Colors.black87,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 9),
                         ),
                       ),
-                    ],
-                    if (estado == 'completada') ...[
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.star_outline, size: 15),
-                          label: const Text('Calificar'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.amber[400],
-                            foregroundColor: Colors.black87,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 9),
-                          ),
+                    ),
+                  ]),
+                ],
+                if (estado == 'confirmada') ...[
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            widget.reservaCtrl.cancelarReserva(widget.reserva.id),
+                        icon: const Icon(Icons.cancel_outlined, size: 15),
+                        label: const Text('Cancelar'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red[600],
+                          side: BorderSide(color: Colors.red[200]!),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 9),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => Get.toNamed('/home'),
-                          icon: const Icon(Icons.replay_outlined, size: 15),
-                          label: const Text('Reservar de nuevo'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.greenAccent[400],
-                            foregroundColor: Colors.black87,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 9),
-                          ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final cancha = await Get.find<CanchaController>()
+                              .obtenerCanchaPorId(widget.reserva.canchaId);
+                          if (cancha != null) {
+                            Get.toNamed('/disponibilidad', arguments: cancha);
+                          }
+                        },
+                        icon: const Icon(Icons.map_outlined, size: 15),
+                        label: const Text('Ver cancha'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.greenAccent[400],
+                          foregroundColor: Colors.black87,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 9),
                         ),
                       ),
-                    ],
-                    if (estado == 'cancelada')
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => Get.toNamed('/home'),
-                          icon: const Icon(Icons.add_circle_outline, size: 15),
-                          label: const Text('Nueva reserva'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.greenAccent[400],
-                            foregroundColor: Colors.black87,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 9),
-                          ),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [_botonCalificar()]),
+                ],
+                if (estado == 'completada') ...[
+                  Row(children: [
+                    _botonCalificar(),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => Get.toNamed('/home'),
+                        icon: const Icon(Icons.replay_outlined, size: 15),
+                        label: const Text('Reservar de nuevo'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.greenAccent[400],
+                          foregroundColor: Colors.black87,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 9),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                  ]),
+                ],
+                if (estado == 'cancelada' || estado == 'rechazada')
+                  Row(children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => Get.toNamed('/home'),
+                        icon: const Icon(Icons.add_circle_outline, size: 15),
+                        label: const Text('Nueva reserva'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.greenAccent[400],
+                          foregroundColor: Colors.black87,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 9),
+                        ),
+                      ),
+                    ),
+                  ]),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BOTTOM SHEET CALIFICACIÓN
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _CalificacionSheet extends StatefulWidget {
+  final Reserva reserva;
+  final CalificacionController calificacionCtrl;
+  final AuthController authCtrl;
+  final VoidCallback onCalificado;
+
+  const _CalificacionSheet({
+    required this.reserva,
+    required this.calificacionCtrl,
+    required this.authCtrl,
+    required this.onCalificado,
+  });
+
+  @override
+  State<_CalificacionSheet> createState() => _CalificacionSheetState();
+}
+
+class _CalificacionSheetState extends State<_CalificacionSheet> {
+  int _puntuacion = 0;
+  final _comentarioCtrl = TextEditingController();
+  bool _enviando = false;
+
+  static const _etiquetas = ['', 'Muy malo', 'Malo', 'Regular', 'Bueno', 'Excelente'];
+
+  @override
+  void dispose() {
+    _comentarioCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enviar() async {
+    if (_puntuacion == 0) {
+      Get.snackbar(
+        'Elige una puntuación',
+        'Selecciona entre 1 y 5 estrellas antes de enviar.',
+        backgroundColor: Colors.orange[50],
+        colorText: Colors.orange[900],
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    setState(() => _enviando = true);
+    final uid = widget.authCtrl.usuario.value?.id ?? '';
+    final ok = await widget.calificacionCtrl.calificar(
+      usuarioId: uid,
+      canchaId: widget.reserva.canchaId,
+      reservaId: widget.reserva.id,
+      puntuacion: _puntuacion,
+      comentario: _comentarioCtrl.text.trim(),
+    );
+    if (mounted) {
+      setState(() => _enviando = false);
+      if (ok) {
+        Navigator.pop(context);
+        widget.onCalificado();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            const Text('¿Cómo fue tu experiencia?',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87)),
+            const SizedBox(height: 4),
+            Text(
+              widget.reserva.nombreCancha ?? 'Cancha',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 24),
+            // ── Estrellas ───────────────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (i) {
+                final estrella = i + 1;
+                return GestureDetector(
+                  onTap: () => setState(() => _puntuacion = estrella),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    child: Icon(
+                      estrella <= _puntuacion ? Icons.star_rounded : Icons.star_border_rounded,
+                      size: 48,
+                      color: estrella <= _puntuacion ? Colors.amber[500] : Colors.grey[300],
+                    ),
+                  ),
+                );
+              }),
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: _puntuacion > 0
+                  ? Padding(
+                      key: ValueKey(_puntuacion),
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        _etiquetas[_puntuacion],
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.amber[700]),
+                      ),
+                    )
+                  : const SizedBox(key: ValueKey(0), height: 8),
+            ),
+            const SizedBox(height: 20),
+            // ── Comentario ──────────────────────────────────────────────
+            TextField(
+              controller: _comentarioCtrl,
+              maxLines: 3,
+              maxLength: 200,
+              decoration: InputDecoration(
+                hintText: 'Cuéntanos tu experiencia (opcional)',
+                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                filled: true,
+                fillColor: Colors.grey[50],
+                counterStyle: TextStyle(color: Colors.grey[400], fontSize: 11),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[200]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[200]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.amber, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // ── Botones ─────────────────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _enviando ? null : () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: BorderSide(color: Colors.grey[300]!),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: _enviando ? null : _enviar,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber[500],
+                      foregroundColor: Colors.black87,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _enviando
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Text('Enviar calificación',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1153,6 +1592,95 @@ class _OpcionItem extends StatelessWidget {
         title: Text(label, style: const TextStyle(fontSize: 14)),
         trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _NotifItemFromModel extends StatelessWidget {
+  final Notificacion notificacion;
+  final VoidCallback onTap;
+
+  const _NotifItemFromModel({required this.notificacion, required this.onTap});
+
+  IconData _icono(String tipo) {
+    switch (tipo.toLowerCase()) {
+      case 'reserva':
+        return Icons.calendar_today_outlined;
+      case 'calificacion':
+        return Icons.star_outline;
+      case 'pago':
+        return Icons.payments_outlined;
+      default:
+        return Icons.notifications_outlined;
+    }
+  }
+
+  Color _color(String tipo) {
+    switch (tipo.toLowerCase()) {
+      case 'reserva':
+        return Colors.green;
+      case 'calificacion':
+        return Colors.amber;
+      case 'pago':
+        return Colors.teal;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  String _tiempoRelativo(DateTime fecha) {
+    final diff = DateTime.now().difference(fecha);
+    if (diff.inMinutes < 1) return 'Ahora';
+    if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'Hace ${diff.inHours} h';
+    if (diff.inDays == 1) return 'Ayer';
+    return 'Hace ${diff.inDays} días';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _color(notificacion.tipo);
+    final icono = _icono(notificacion.tipo);
+    final esNoLeida = !notificacion.leida;
+
+    return Container(
+      color: esNoLeida ? Colors.green.withValues(alpha: 0.06) : Colors.transparent,
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icono, color: color, size: 20),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                notificacion.titulo,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: esNoLeida ? FontWeight.w700 : FontWeight.w600,
+                ),
+              ),
+            ),
+            if (esNoLeida)
+              const SizedBox(
+                width: 8,
+                height: 8,
+                child: DecoratedBox(decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
+              ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(notificacion.mensaje, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            const SizedBox(height: 2),
+            Text(_tiempoRelativo(notificacion.fecha), style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+          ],
+        ),
+        isThreeLine: true,
       ),
     );
   }

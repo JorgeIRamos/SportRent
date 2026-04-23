@@ -26,7 +26,9 @@ class Notificacion {
     'mensaje': mensaje,
     'tipo': tipo,
     'leida': leida,
-    'fecha': fecha.toIso8601String(),
+    // Guardar como Timestamp evita problemas de ordenamiento/consulta en Firestore
+    // y mantiene un tipo consistente.
+    'fecha': Timestamp.fromDate(fecha),
   };
 
   factory Notificacion.fromJson(Map<String, dynamic> json) => Notificacion(
@@ -36,8 +38,20 @@ class Notificacion {
     mensaje: json['mensaje'],
     tipo: json['tipo'] ?? 'sistema',
     leida: json['leida'] ?? false,
-    fecha: json['fecha'] is Timestamp
-        ? (json['fecha'] as Timestamp).toDate()
-        : DateTime.parse(json['fecha']),
+    fecha: () {
+      final raw = json['fecha'];
+      if (raw == null) return DateTime.now();
+      if (raw is Timestamp) return raw.toDate();
+      if (raw is DateTime) return raw;
+      if (raw is int) {
+        // por si viene como epoch millis
+        return DateTime.fromMillisecondsSinceEpoch(raw);
+      }
+      if (raw is String) {
+        final parsed = DateTime.tryParse(raw);
+        return parsed ?? DateTime.now();
+      }
+      return DateTime.now();
+    }(),
   );
 }

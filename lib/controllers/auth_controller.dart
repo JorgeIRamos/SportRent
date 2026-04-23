@@ -26,6 +26,7 @@ class AuthController extends GetxController {
     final activa = await _authService.isSessionActive();
     if (activa) {
       usuario.value = _authService.usuarioActual;
+      _redirigirSegunRol(usuario.value!.rol);
     }
   }
 
