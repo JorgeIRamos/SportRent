@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "904684480635",
+    "project_id": "sportrent-198c8",
+    "storage_bucket": "sportrent-198c8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:904684480635:android:fd3003762e434184785ade",
+        "android_client_info": {
+          "package_name": "com.example.sport_rent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDUcIb1tmvhVILBWXVKm1mqL-4ooUHbSk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

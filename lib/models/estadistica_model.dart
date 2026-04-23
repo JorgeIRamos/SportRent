@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Estadistica {
   final String empresaId;
   final DateTime periodoInicio;
@@ -38,14 +40,19 @@ class Estadistica {
 
   factory Estadistica.fromJson(Map<String, dynamic> json) => Estadistica(
     empresaId: json['empresaId'],
-    periodoInicio: DateTime.parse(json['periodoInicio']),
-    periodoFin: DateTime.parse(json['periodoFin']),
+    periodoInicio: json['periodoInicio'] is Timestamp
+        ? (json['periodoInicio'] as Timestamp).toDate()
+        : DateTime.parse(json['periodoInicio']),
+    periodoFin: json['periodoFin'] is Timestamp
+        ? (json['periodoFin'] as Timestamp).toDate()
+        : DateTime.parse(json['periodoFin']),
     totalReservas: json['totalReservas'] ?? 0,
     totalIngresos: json['totalIngresos']?.toDouble() ?? 0.0,
     horarioMasDemandado: json['horarioMasDemandado'] ?? '',
     canchasMasReservada: json['canchasMasReservada'] ?? '',
     tasaOcupacion: json['tasaOcupacion']?.toDouble() ?? 0.0,
     reservasPorDia: Map<String, int>.from(json['reservasPorDia'] ?? {}),
-    ingresosPorMes: Map<String, double>.from(json['ingresosPorMes'] ?? {}),
+    ingresosPorMes: (json['ingresosPorMes'] as Map? ?? {})
+        .map((k, v) => MapEntry(k as String, (v as num).toDouble())),
   );
 }

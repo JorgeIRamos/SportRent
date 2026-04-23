@@ -1,7 +1,13 @@
+import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sport_rent/controllers/auth_controller.dart';
+import 'package:sport_rent/controllers/cancha_controller.dart';
+import 'package:sport_rent/controllers/empresa_controller.dart';
+import 'package:sport_rent/controllers/reserva_controller.dart';
+import 'package:sport_rent/models/cancha_model.dart';
+import 'package:sport_rent/models/reserva_model.dart';
 import 'package:sport_rent/ui/pages/home.dart';
 import 'package:sport_rent/ui/pages/registrar_canchas.dart';
 
@@ -18,55 +24,17 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
   int _navIndex = 0;
   int _notificacionesSinLeer = 3;
 
+  late final CanchaController _canchaCtrl;
+  late final ReservaController _reservaCtrl;
+  late final EmpresaController _empresaCtrl;
+
   final List<String> _deportes = ['Fútbol', 'Baloncesto', 'Tenis', 'Pádel', 'Voleibol', 'Béisbol'];
 
-  final List<Map<String, dynamic>> _misCanchas = [
-    {
-      'nombre': 'Cancha Fútbol 5 Premium',
-      'empresa': 'Mi Empresa',
-      'deporte': 'Fútbol',
-      'precio': 450000,
-      'calificacion': 4.9,
-      'numResenas': 156,
-      'cierreHora': '23:00',
-      'destacado': true,
-      'activa': true,
-      'reservasHoy': 3,
-      'color': Colors.green,
-    },
-    {
-      'nombre': 'Cancha Fútbol 11',
-      'empresa': 'Mi Empresa',
-      'deporte': 'Fútbol',
-      'precio': 650000,
-      'calificacion': 4.6,
-      'numResenas': 42,
-      'cierreHora': '22:00',
-      'destacado': false,
-      'activa': true,
-      'reservasHoy': 1,
-      'color': Colors.lightGreen,
-    },
-    {
-      'nombre': 'Cancha de Tenis',
-      'empresa': 'Mi Empresa',
-      'deporte': 'Tenis',
-      'precio': 280000,
-      'calificacion': 4.3,
-      'numResenas': 28,
-      'cierreHora': '21:00',
-      'destacado': false,
-      'activa': false,
-      'reservasHoy': 0,
-      'color': Colors.teal,
-    },
-  ];
-
-  List<Map<String, dynamic>> get _canchasFiltradas {
-    return _misCanchas.where((c) {
-      if (_deporteSeleccionado != null && c['deporte'] != _deporteSeleccionado) return false;
+  List<Cancha> get _canchasFiltradas {
+    return _canchaCtrl.canchas.where((c) {
+      if (_deporteSeleccionado != null && c.tipoDeporte != _deporteSeleccionado) return false;
       if (_buscarCtrl.text.isNotEmpty &&
-          !(c['nombre'] as String).toLowerCase().contains(_buscarCtrl.text.toLowerCase())) {
+          !c.nombre.toLowerCase().contains(_buscarCtrl.text.toLowerCase())) {
         return false;
       }
       return true;
@@ -81,6 +49,21 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _canchaCtrl = Get.find<CanchaController>();
+    _reservaCtrl = Get.find<ReservaController>();
+    _empresaCtrl = Get.find<EmpresaController>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final empresaId = Get.find<AuthController>().empresaId;
+      if (empresaId.isEmpty) return;
+      _canchaCtrl.cargarCanchas(empresaId: empresaId);
+      _reservaCtrl.cargarReservasEmpresa(empresaId);
+      _empresaCtrl.cargarEmpresa(empresaId);
+    });
+  }
+
+  @override
   void dispose() {
     _buscarCtrl.dispose();
     super.dispose();
@@ -91,14 +74,14 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
       case 1: return 'Reservas';
       case 2: return 'Estadísticas';
       case 3: return 'Mi Perfil';
-      default: return 'Mi Empresa';
+      default:
+        final empresa = Get.find<EmpresaController>();
+        return empresa.nombreEmpresa.isNotEmpty ? empresa.nombreEmpresa : 'Mi Empresa';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalReservasHoy = _misCanchas.fold<int>(0, (s, c) => s + (c['reservasHoy'] as int));
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -113,10 +96,20 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
             if (_navIndex == 0)
               Row(
                 children: [
-                  Icon(Icons.verified, size: 13, color: Colors.green[700]),
+                  Icon(
+                    _empresaCtrl.estaVerificada ? Icons.verified : Icons.hourglass_top,
+                    size: 13,
+                    color: _empresaCtrl.estaVerificada ? Colors.green[700] : Colors.orange[700],
+                  ),
                   SizedBox(width: 3),
-                  Text('Empresa verificada',
-                      style: TextStyle(fontSize: 11, color: Colors.green[700], fontWeight: FontWeight.normal)),
+                  Text(
+                    _empresaCtrl.estaVerificada ? 'Empresa verificada' : 'Empresa sin aprobar',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: _empresaCtrl.estaVerificada ? Colors.green[700] : Colors.orange[700],
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
                 ],
               ),
           ],
@@ -143,8 +136,8 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
           ),
         ],
       ),
-      body: _buildBody(totalReservasHoy),
-      floatingActionButton: _navIndex == 0
+      body: _buildBody(),
+      floatingActionButton: _navIndex == 0 && _empresaCtrl.estaVerificada
           ? FloatingActionButton.extended(
               onPressed: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const RegistrarCancha())),
@@ -158,55 +151,116 @@ class _HomeEmpresaState extends State<HomeEmpresa> {
     );
   }
 
-  Widget _buildBody(int totalReservasHoy) {
+  Widget _buildBody() {
     switch (_navIndex) {
-      case 0: return _buildInicio(totalReservasHoy);
+      case 0: return _buildInicio();
       case 1: return const _ReservasTab();
       case 2: return const _EstadisticasTab();
-      case 3: return const _PerfilTab();
-      default: return _buildInicio(totalReservasHoy);
+      case 3: return _PerfilTab();
+      default: return _buildInicio();
     }
   }
 
   // ── INICIO ────────────────────────────────────────────────────────────────
 
-  Widget _buildInicio(int totalReservasHoy) {
-    final canchas = _canchasFiltradas;
-    return Column(
-      children: [
-        _buildResumen(totalReservasHoy),
-        _buildEncabezado(),
-        Expanded(
-          child: canchas.isEmpty
-              ? _buildVacio()
-              : ListView.builder(
-                  padding: EdgeInsets.only(bottom: 90),
-                  itemCount: canchas.length,
-                  itemBuilder: (ctx, i) => _CanchaEmpresaCard(
-                    cancha: canchas[i],
-                    onToggleActiva: () {
-                      final orig = _misCanchas.indexOf(canchas[i]);
-                      setState(() => _misCanchas[orig]['activa'] = !_misCanchas[orig]['activa']);
-                    },
+  Widget _buildInicio() {
+    return Obx(() {
+      if (_canchaCtrl.isLoading.value) {
+        return const Center(child: CircularProgressIndicator(color: Colors.green));
+      }
+      final canchas = _canchasFiltradas;
+      final hoy = DateTime.now();
+      final reservasHoy = _reservaCtrl.reservas.where((r) =>
+          r.fecha.year == hoy.year &&
+          r.fecha.month == hoy.month &&
+          r.fecha.day == hoy.day).length;
+      return Column(
+        children: [
+          _buildResumen(canchas, reservasHoy),
+          if (!_empresaCtrl.estaVerificada)
+            Container(
+              width: double.infinity,
+              margin: EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.green[50]!),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 14,
+                    offset: Offset(0, 6),
                   ),
-                ),
-        ),
-      ],
-    );
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange[700]),
+                      SizedBox(width: 10),
+                      Text(
+                        'Estado de verificación',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Tu empresa aún no ha sido aprobada por un administrador. Hasta entonces no puedes registrar canchas ni gestionar reservas.',
+                    style: TextStyle(color: Colors.grey[800], fontSize: 13, height: 1.4),
+                  ),
+                  SizedBox(height: 14),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange[50],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Pendiente de aprobación',
+                      style: TextStyle(color: Colors.orange[900], fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          _buildEncabezado(),
+          Expanded(
+            child: canchas.isEmpty
+                ? _buildVacio()
+                : ListView.builder(
+                    padding: EdgeInsets.only(bottom: 90),
+                    itemCount: canchas.length,
+                    itemBuilder: (ctx, i) => _CanchaEmpresaCard(
+                      cancha: canchas[i],
+                      onToggleActiva: () => _canchaCtrl.toggleActiva(canchas[i].id),
+                    ),
+                  ),
+          ),
+        ],
+      );
+    });
   }
 
-  Widget _buildResumen(int reservasHoy) {
+  Widget _buildResumen(List<Cancha> canchas, int reservasHoy) {
     return Container(
       color: Colors.green[100],
       padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Row(
         children: [
-          _StatCard(label: 'Mis canchas', valor: '${_misCanchas.length}',
+          _StatCard(label: 'Mis canchas', valor: '${canchas.length}',
               icono: Icons.sports_soccer, color: Colors.green[700]!),
           SizedBox(width: 10),
           _StatCard(
               label: 'Activas',
-              valor: '${_misCanchas.where((c) => c['activa'] as bool).length}',
+              valor: '${canchas.where((c) => c.activa).length}',
               icono: Icons.check_circle_outline,
               color: Colors.teal[600]!),
           SizedBox(width: 10),
@@ -452,222 +506,44 @@ class _ReservasTab extends StatefulWidget {
 }
 
 class _ReservasTabState extends State<_ReservasTab> {
-  String _filtro = 'Todas';
-
-  final List<Map<String, dynamic>> _reservas = [
-    {
-      'cliente': 'Carlos Pérez',
-      'cancha': 'Cancha Fútbol 5 Premium',
-      'fecha': 'Hoy',
-      'hora': '15:00 – 16:00',
-      'estado': 'Confirmada',
-      'monto': 450000,
-      'color': Colors.green,
-    },
-    {
-      'cliente': 'María López',
-      'cancha': 'Cancha Fútbol 11',
-      'fecha': 'Hoy',
-      'hora': '17:00 – 18:00',
-      'estado': 'Pendiente',
-      'monto': 650000,
-      'color': Colors.lightGreen,
-    },
-    {
-      'cliente': 'Juan García',
-      'cancha': 'Cancha de Tenis',
-      'fecha': 'Mañana',
-      'hora': '09:00 – 10:00',
-      'estado': 'Confirmada',
-      'monto': 280000,
-      'color': Colors.teal,
-    },
-    {
-      'cliente': 'Ana Torres',
-      'cancha': 'Cancha Fútbol 5 Premium',
-      'fecha': '22 Abr',
-      'hora': '10:00 – 11:00',
-      'estado': 'Cancelada',
-      'monto': 450000,
-      'color': Colors.green,
-    },
-    {
-      'cliente': 'Luis Martínez',
-      'cancha': 'Cancha Fútbol 11',
-      'fecha': '23 Abr',
-      'hora': '18:00 – 19:00',
-      'estado': 'Confirmada',
-      'monto': 650000,
-      'color': Colors.lightGreen,
-    },
-    {
-      'cliente': 'Sara Gómez',
-      'cancha': 'Cancha de Tenis',
-      'fecha': '24 Abr',
-      'hora': '11:00 – 12:00',
-      'estado': 'Pendiente',
-      'monto': 280000,
-      'color': Colors.teal,
-    },
-  ];
-
-  List<Map<String, dynamic>> get _filtradas =>
-      _filtro == 'Todas' ? _reservas : _reservas.where((r) => r['estado'] == _filtro).toList();
+  final _ctrl = Get.find<ReservaController>();
 
   Color _colorEstado(String estado) {
     switch (estado) {
-      case 'Confirmada': return Colors.green[600]!;
-      case 'Pendiente': return Colors.orange[600]!;
-      case 'Cancelada': return Colors.red[400]!;
+      case 'confirmada': return Colors.green[600]!;
+      case 'pendiente':  return Colors.orange[600]!;
+      case 'cancelada':  return Colors.red[400]!;
+      case 'rechazada':  return Colors.red[700]!;
+      case 'completada': return Colors.blue[600]!;
       default: return Colors.grey;
     }
   }
 
   Color _bgEstado(String estado) {
     switch (estado) {
-      case 'Confirmada': return Colors.green[50]!;
-      case 'Pendiente': return Colors.orange[50]!;
-      case 'Cancelada': return Colors.red[50]!;
+      case 'confirmada': return Colors.green[50]!;
+      case 'pendiente':  return Colors.orange[50]!;
+      case 'cancelada':  return Colors.red[50]!;
+      case 'rechazada':  return Colors.red[50]!;
+      case 'completada': return Colors.blue[50]!;
       default: return Colors.grey[100]!;
     }
   }
 
-  int get _totalConfirmadas => _reservas.where((r) => r['estado'] == 'Confirmada').length;
-  int get _totalPendientes => _reservas.where((r) => r['estado'] == 'Pendiente').length;
-  int get _totalCanceladas => _reservas.where((r) => r['estado'] == 'Cancelada').length;
+  String _capitalizar(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
-  @override
-  Widget build(BuildContext context) {
-    final lista = _filtradas;
-    return Column(
-      children: [
-        Container(
-          color: Colors.green[100],
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 14),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  _MiniStat(valor: '$_totalConfirmadas', label: 'Confirm.', color: Colors.green[600]!),
-                  SizedBox(width: 8),
-                  _MiniStat(valor: '$_totalPendientes', label: 'Pendientes', color: Colors.orange[600]!),
-                  SizedBox(width: 8),
-                  _MiniStat(valor: '$_totalCanceladas', label: 'Canceladas', color: Colors.red[400]!),
-                  SizedBox(width: 8),
-                  _MiniStat(valor: '${_reservas.length}', label: 'Total', color: Colors.green[800]!),
-                ],
-              ),
-              SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: ['Todas', 'Confirmada', 'Pendiente', 'Cancelada'].map((f) {
-                    final sel = _filtro == f;
-                    return GestureDetector(
-                      onTap: () => setState(() => _filtro = f),
-                      child: AnimatedContainer(
-                        duration: Duration(milliseconds: 200),
-                        margin: EdgeInsets.only(right: 8),
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: sel ? Colors.green[700] : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: sel ? Colors.green[700]! : Colors.grey[300]!),
-                        ),
-                        child: Text(f,
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: sel ? Colors.white : Colors.grey[800])),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text('${lista.length} reservas',
-                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
-          ),
-        ),
-        Expanded(
-          child: lista.isEmpty
-              ? Center(child: Text('No hay reservas', style: TextStyle(color: Colors.grey[500])))
-              : ListView.builder(
-                  padding: EdgeInsets.only(bottom: 16),
-                  itemCount: lista.length,
-                  itemBuilder: (_, i) {
-                    final r = lista[i];
-                    final Color c = r['color'] as Color;
-                    final String estado = r['estado'] as String;
-                    return Container(
-                      margin: EdgeInsets.fromLTRB(16, 10, 16, 0),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8)],
-                      ),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        leading: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(color: c.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                          child: Icon(Icons.sports_soccer_outlined, color: c),
-                        ),
-                        title: Text(r['cliente'],
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(height: 2),
-                            Text(r['cancha'] as String,
-                                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                            SizedBox(height: 3),
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today_outlined, size: 12, color: Colors.grey[500]),
-                                SizedBox(width: 3),
-                                Text('${r['fecha']}  ·  ${r['hora']}',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                              ],
-                            ),
-                          ],
-                        ),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                  color: _bgEstado(estado), borderRadius: BorderRadius.circular(8)),
-                              child: Text(estado,
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: _colorEstado(estado))),
-                            ),
-                            SizedBox(height: 4),
-                            Text('\$${_fmt(r['monto'] as int)}',
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green[700])),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
+  String _formatFecha(DateTime fecha) {
+    final hoy = DateTime.now();
+    if (fecha.year == hoy.year && fecha.month == hoy.month && fecha.day == hoy.day) {
+      return 'Hoy';
+    }
+    final man = hoy.add(const Duration(days: 1));
+    if (fecha.year == man.year && fecha.month == man.month && fecha.day == man.day) {
+      return 'Mañana';
+    }
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return '${fecha.day} ${meses[fecha.month - 1]}';
   }
 
   String _fmt(int v) {
@@ -678,6 +554,218 @@ class _ReservasTabState extends State<_ReservasTab> {
       buf.write(s[i]);
     }
     return buf.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final lista = _ctrl.reservasFiltradas;
+      final filtro = _ctrl.filtroEstado.value;
+      final empresaVerificada = Get.find<EmpresaController>().estaVerificada;
+      return Column(
+        children: [
+          Container(
+            color: Colors.green[100],
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 14),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    _MiniStat(valor: '${_ctrl.totalConfirmadas}', label: 'Confirm.', color: Colors.green[600]!),
+                    SizedBox(width: 8),
+                    _MiniStat(valor: '${_ctrl.totalPendientes}', label: 'Pendientes', color: Colors.orange[600]!),
+                    SizedBox(width: 8),
+                    _MiniStat(valor: '${_ctrl.totalCanceladas}', label: 'Canceladas', color: Colors.red[400]!),
+                    SizedBox(width: 8),
+                    _MiniStat(valor: '${_ctrl.reservas.length}', label: 'Total', color: Colors.green[800]!),
+                  ],
+                ),
+                SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ['Todas', 'Confirmada', 'Pendiente', 'Cancelada', 'Rechazada'].map((f) {
+                      final sel = filtro == f;
+                      return GestureDetector(
+                        onTap: () => _ctrl.setFiltro(f),
+                        child: AnimatedContainer(
+                          duration: Duration(milliseconds: 200),
+                          margin: EdgeInsets.only(right: 8),
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: sel ? Colors.green[700] : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: sel ? Colors.green[700]! : Colors.grey[300]!),
+                          ),
+                          child: Text(f,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: sel ? Colors.white : Colors.grey[800])),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('${lista.length} reservas',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
+            ),
+          ),
+          if (_ctrl.isLoading.value)
+            const Expanded(child: Center(child: CircularProgressIndicator(color: Colors.green)))
+          else
+            Expanded(
+              child: lista.isEmpty
+                  ? Center(child: Text('No hay reservas', style: TextStyle(color: Colors.grey[500])))
+                  : ListView.builder(
+                      padding: EdgeInsets.only(bottom: 16),
+                      itemCount: lista.length,
+                      itemBuilder: (_, i) {
+                        final Reserva r = lista[i];
+                        final String estado = r.estado;
+                        return Container(
+                          margin: EdgeInsets.fromLTRB(16, 10, 16, 0),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8)],
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                          color: Colors.green.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(12)),
+                                      child: Icon(Icons.sports_soccer_outlined, color: Colors.green[700]),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Reserva #${r.id.substring(0, 6)}',
+                                              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                          SizedBox(height: 6),
+                                          Text(r.nombreCliente ?? 'Cliente desconocido',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                          SizedBox(height: 4),
+                                          Text('Cancha: ${r.nombreCancha ?? r.canchaId}',
+                                              style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                          color: _bgEstado(estado),
+                                          borderRadius: BorderRadius.circular(10)),
+                                      child: Text(_capitalizar(estado),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: _colorEstado(estado),
+                                          )),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey[600]),
+                                    SizedBox(width: 6),
+                                    Expanded(child: Text('${_formatFecha(r.fecha)} · ${r.horaInicio} – ${r.horaFin}',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey[600]))),
+                                  ],
+                                ),
+                                SizedBox(height: 10),
+                                Text('Total: \$${_fmt(r.montoTotal.toInt())}',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green[700])),
+                                if (!empresaVerificada) ...[
+                                  SizedBox(height: 12),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange[50],
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Empresa pendiente de aprobación. No puedes gestionar reservas.',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.orange[800],
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ] else if (estado == 'pendiente') ...[
+                                  SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: () => _ctrl.rechazarReserva(r.id),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.red[700],
+                                            side: BorderSide(color: Colors.red[200]!),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            padding: EdgeInsets.symmetric(vertical: 12),
+                                          ),
+                                          child: Text('Rechazar reserva'),
+                                        ),
+                                      ),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: () => _ctrl.confirmarReserva(r.id),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.green[700],
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            padding: EdgeInsets.symmetric(vertical: 12),
+                                          ),
+                                          child: Text('Aceptar reserva'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ] else if (estado == 'confirmada') ...[
+                                  SizedBox(height: 12),
+                                  OutlinedButton(
+                                    onPressed: () => _ctrl.cancelarReserva(r.id),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red[700],
+                                      side: BorderSide(color: Colors.red[200]!),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      padding: EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    child: Text('Cancelar reserva'),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+        ],
+      );
+    });
   }
 }
 
@@ -1150,123 +1238,161 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
 class _PerfilTab extends StatelessWidget {
   const _PerfilTab();
 
+  String _iniciales(String nombre) {
+    final partes = nombre.trim().split(' ').where((p) => p.isNotEmpty).toList();
+    if (partes.isEmpty) return 'E';
+    if (partes.length == 1) return partes[0][0].toUpperCase();
+    return (partes[0][0] + partes[1][0]).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: 24),
-      child: Column(
-        children: [
-          // Cabecera
-          Container(
-            color: Colors.green[100],
-            padding: EdgeInsets.fromLTRB(24, 24, 24, 28),
-            child: Column(
-              children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 46,
-                      backgroundColor: Colors.green[200],
-                      child: Text('ME',
-                          style: TextStyle(
-                              fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+    return Obx(() {
+      final auth = Get.find<AuthController>();
+      final canchaCtrl = Get.find<CanchaController>();
+      final reservaCtrl = Get.find<ReservaController>();
+      final empresaCtrl = Get.find<EmpresaController>();
+      final usuario = auth.usuario.value;
+
+      final nombre = usuario?.nombre ?? '';
+      final nombreEmpresa = empresaCtrl.nombreEmpresa;
+      final nit = empresaCtrl.nit;
+      final email = usuario?.email ?? '';
+      final telefono = usuario?.telefono ?? '';
+
+      return SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: 24),
+        child: Column(
+          children: [
+            // Cabecera
+            Container(
+              color: Colors.green[100],
+              padding: EdgeInsets.fromLTRB(24, 24, 24, 28),
+              child: Column(
+                children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 46,
+                        backgroundColor: Colors.green[200],
+                        child: Text(_iniciales(nombreEmpresa.isNotEmpty ? nombreEmpresa : nombre),
+                            style: TextStyle(
+                                fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: Colors.greenAccent[400], shape: BoxShape.circle),
+                          child: Icon(Icons.camera_alt, size: 16, color: Colors.black87),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  Text(nombreEmpresa.isNotEmpty ? nombreEmpresa : (nombre.isNotEmpty ? nombre : 'Mi Empresa'),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
+                  SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        empresaCtrl.estaVerificada ? Icons.verified : Icons.hourglass_top,
+                        size: 15,
+                        color: empresaCtrl.estaVerificada ? Colors.green[700] : Colors.orange[700],
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        empresaCtrl.estaVerificada ? 'Empresa verificada' : 'Empresa sin aprobar',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: empresaCtrl.estaVerificada ? Colors.green[700] : Colors.orange[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {},
+                    icon: Icon(Icons.edit_outlined, size: 16),
+                    label: Text('Editar perfil'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.greenAccent[400],
+                      foregroundColor: Colors.black87,
+                      elevation: 0,
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: Colors.greenAccent[400], shape: BoxShape.circle),
-                        child: Icon(Icons.camera_alt, size: 16, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 16),
+
+            // Información
+            _SeccionPerfil(titulo: 'Información de la empresa', items: [
+              _InfoItem(icono: Icons.business_outlined, label: 'Empresa', valor: nombreEmpresa.isNotEmpty ? nombreEmpresa : '—'),
+              _InfoItem(icono: Icons.badge_outlined, label: 'NIT', valor: nit.isNotEmpty ? nit : '—'),
+              _InfoItem(icono: Icons.person_outline, label: 'Responsable', valor: nombre.isNotEmpty ? nombre : '—'),
+              _InfoItem(icono: Icons.phone_outlined, label: 'Teléfono', valor: telefono.isNotEmpty ? telefono : '—'),
+              _InfoItem(icono: Icons.email_outlined, label: 'Correo', valor: email.isNotEmpty ? email : '—'),
+            ]),
+
+            SizedBox(height: 12),
+
+            // Resumen de actividad
+            _SeccionPerfil(titulo: 'Resumen de actividad', items: [
+              _InfoItem(
+                  icono: Icons.sports_soccer_outlined,
+                  label: 'Canchas registradas',
+                  valor: canchaCtrl.canchas.length.toString()),
+              _InfoItem(
+                  icono: Icons.calendar_today_outlined,
+                  label: 'Total reservas',
+                  valor: reservaCtrl.reservas.length.toString()),
+              _InfoItem(
+                  icono: Icons.check_circle_outline,
+                  label: 'Reservas confirmadas',
+                  valor: reservaCtrl.totalConfirmadas.toString()),
+            ]),
+
+            SizedBox(height: 12),
+
+            // Opciones
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  _OpcionItem(icono: Icons.lock_outline, label: 'Cambiar contraseña', onTap: () {}),
+                  _OpcionItem(icono: Icons.notifications_outlined, label: 'Preferencias de notificación', onTap: () {}),
+                  _OpcionItem(icono: Icons.help_outline, label: 'Ayuda y soporte', onTap: () {}),
+                  _OpcionItem(icono: Icons.policy_outlined, label: 'Términos y condiciones', onTap: () {}),
+                  SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => auth.logout(),
+                      icon: Icon(Icons.logout, color: Colors.red[600]),
+                      label: Text('Cerrar sesión',
+                          style: TextStyle(color: Colors.red[600], fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.red[200]!),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                Text('Mi Empresa',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
-                SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.verified, size: 15, color: Colors.green[700]),
-                    SizedBox(width: 4),
-                    Text('Empresa verificada',
-                        style: TextStyle(fontSize: 13, color: Colors.green[700])),
-                  ],
-                ),
-                SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: Icon(Icons.edit_outlined, size: 16),
-                  label: Text('Editar perfil'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.greenAccent[400],
-                    foregroundColor: Colors.black87,
-                    elevation: 0,
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          SizedBox(height: 16),
-
-          // Información
-          _SeccionPerfil(titulo: 'Información de la empresa', items: const [
-            _InfoItem(icono: Icons.business_outlined, label: 'Nombre', valor: 'Mi Empresa S.A.S'),
-            _InfoItem(icono: Icons.badge_outlined, label: 'NIT', valor: '900.123.456-7'),
-            _InfoItem(icono: Icons.location_on_outlined, label: 'Ciudad', valor: 'Valledupar, Cesar'),
-            _InfoItem(icono: Icons.phone_outlined, label: 'Teléfono', valor: '+57 301 234 5678'),
-            _InfoItem(icono: Icons.email_outlined, label: 'Correo', valor: 'info@miempresa.com'),
-          ]),
-
-          SizedBox(height: 12),
-
-          // Resumen
-          _SeccionPerfil(titulo: 'Resumen de actividad', items: const [
-            _InfoItem(icono: Icons.sports_soccer_outlined, label: 'Canchas registradas', valor: '3'),
-            _InfoItem(icono: Icons.calendar_today_outlined, label: 'Total reservas', valor: '124'),
-            _InfoItem(icono: Icons.star_outline, label: 'Calificación promedio', valor: '4.6 / 5.0'),
-            _InfoItem(icono: Icons.payments_outlined, label: 'Ingresos este mes', valor: '\$4.950.000'),
-          ]),
-
-          SizedBox(height: 12),
-
-          // Opciones
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                _OpcionItem(icono: Icons.lock_outline, label: 'Cambiar contraseña', onTap: () {}),
-                _OpcionItem(icono: Icons.notifications_outlined, label: 'Preferencias de notificación', onTap: () {}),
-                _OpcionItem(icono: Icons.help_outline, label: 'Ayuda y soporte', onTap: () {}),
-                _OpcionItem(icono: Icons.policy_outlined, label: 'Términos y condiciones', onTap: () {}),
-                SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Get.find<AuthController>().logout(),
-                    icon: Icon(Icons.logout, color: Colors.red[600]),
-                    label: Text('Cerrar sesión',
-                        style: TextStyle(color: Colors.red[600], fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.red[200]!),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          SizedBox(height: 24),
-        ],
-      ),
-    );
+            SizedBox(height: 24),
+          ],
+        ),
+      );
+    });
   }
 }
 
@@ -1559,16 +1685,29 @@ class _NotifItem extends StatelessWidget {
 }
 
 class _CanchaEmpresaCard extends StatelessWidget {
-  final Map<String, dynamic> cancha;
+  final Cancha cancha;
   final VoidCallback onToggleActiva;
 
   const _CanchaEmpresaCard({required this.cancha, required this.onToggleActiva});
 
+  Color _colorFromDeporte(String deporte) {
+    switch (deporte.toLowerCase()) {
+      case 'fútbol': return Colors.green;
+      case 'tenis': return Colors.teal;
+      case 'pádel': return Colors.cyan;
+      case 'baloncesto': return Colors.orange;
+      case 'voleibol': return Colors.blue;
+      default: return Colors.green;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final Color color = cancha['color'] as Color;
-    final bool activa = cancha['activa'] as bool;
-    final int reservasHoy = cancha['reservasHoy'] as int;
+    final Color color = _colorFromDeporte(cancha.tipoDeporte);
+    final bool activa = cancha.activa;
+    final String cierreHora = cancha.horariosDisponibles.isNotEmpty
+        ? cancha.horariosDisponibles.last
+        : '--';
 
     return Container(
       margin: EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -1584,15 +1723,9 @@ class _CanchaEmpresaCard extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                child: Container(
-                  height: 130,
-                  width: double.infinity,
-                  color: activa ? color.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.1),
-                  child: Center(
-                    child: Icon(Icons.sports_soccer_outlined, size: 60,
-                        color: activa ? color.withValues(alpha: 0.4) : Colors.grey.withValues(alpha: 0.3)),
-                  ),
-                ),
+                child: cancha.fotosUrl.isNotEmpty
+                    ? _fotoCancha(cancha.fotosUrl.first, color, activa)
+                    : _placeholderCancha(color, activa),
               ),
               Positioned(
                 top: 10,
@@ -1606,18 +1739,6 @@ class _CanchaEmpresaCard extends StatelessWidget {
                       style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ),
-              if (reservasHoy > 0)
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration:
-                        BoxDecoration(color: Colors.orange[600], borderRadius: BorderRadius.circular(20)),
-                    child: Text('$reservasHoy reserva${reservasHoy > 1 ? 's' : ''} hoy',
-                        style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ),
             ],
           ),
           Padding(
@@ -1629,7 +1750,7 @@ class _CanchaEmpresaCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: Text(cancha['nombre'],
+                      child: Text(cancha.nombre,
                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
                           overflow: TextOverflow.ellipsis),
                     ),
@@ -1637,7 +1758,7 @@ class _CanchaEmpresaCard extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('\$${_fmt(cancha['precio'] as int)}',
+                        Text('\$${_fmt(cancha.precioPorHora.toInt())}',
                             style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.green[700])),
                         Text('por hora', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                       ],
@@ -1651,18 +1772,18 @@ class _CanchaEmpresaCard extends StatelessWidget {
                       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                           color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                      child: Text(cancha['deporte'],
+                      child: Text(cancha.tipoDeporte,
                           style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
                     ),
                     SizedBox(width: 10),
                     Icon(Icons.star, size: 13, color: Colors.amber[600]),
                     SizedBox(width: 3),
-                    Text('${cancha['calificacion']} (${cancha['numResenas']})',
+                    Text(cancha.calificacionPromedio.toStringAsFixed(1),
                         style: TextStyle(fontSize: 12, color: Colors.grey[700])),
                     SizedBox(width: 10),
                     Icon(Icons.schedule_outlined, size: 13, color: Colors.grey[600]),
                     SizedBox(width: 3),
-                    Text('Hasta ${cancha['cierreHora']}',
+                    Text('Hasta $cierreHora',
                         style: TextStyle(fontSize: 12, color: Colors.grey[700])),
                   ],
                 ),
@@ -1671,7 +1792,12 @@ class _CanchaEmpresaCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => RegistrarCancha(cancha: cancha),
+                          ),
+                        ),
                         icon: Icon(Icons.edit_outlined, size: 16),
                         label: Text('Editar'),
                         style: OutlinedButton.styleFrom(
@@ -1705,6 +1831,42 @@ class _CanchaEmpresaCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _fotoCancha(String url, Color color, bool activa) {
+    final Widget img = url.startsWith('data:')
+        ? () {
+            try {
+              final bytes = base64Decode(url.split(',').last);
+              return Image.memory(bytes,
+                  height: 130, width: double.infinity, fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _placeholderCancha(color, activa));
+            } catch (_) {
+              return _placeholderCancha(color, activa);
+            }
+          }()
+        : Image.network(url,
+            height: 130, width: double.infinity, fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _placeholderCancha(color, activa));
+
+    return ColorFiltered(
+      colorFilter: activa
+          ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply)
+          : const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+      child: img,
+    );
+  }
+
+  Widget _placeholderCancha(Color color, bool activa) {
+    return Container(
+      height: 130,
+      width: double.infinity,
+      color: activa ? color.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.1),
+      child: Center(
+        child: Icon(Icons.sports_soccer_outlined, size: 60,
+            color: activa ? color.withValues(alpha: 0.4) : Colors.grey.withValues(alpha: 0.3)),
       ),
     );
   }

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Favorito {
   final String id;
   final String usuarioId;
@@ -22,6 +24,8 @@ class Favorito {
     id: json['id'],
     usuarioId: json['usuarioId'],
     canchaId: json['canchaId'],
-    fechaAgregado: DateTime.parse(json['fechaAgregado']),
+    fechaAgregado: json['fechaAgregado'] is Timestamp
+        ? (json['fechaAgregado'] as Timestamp).toDate()
+        : DateTime.parse(json['fechaAgregado']),
   );
 }

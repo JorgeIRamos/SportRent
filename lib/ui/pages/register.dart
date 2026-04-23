@@ -18,7 +18,9 @@ class _RegisterState extends State<Register> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    Get.find<AuthController>().limpiarError();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Get.find<AuthController>().limpiarError();
+    });
   }
 
   @override
@@ -242,6 +244,8 @@ class _EmpresaFormState extends State<_EmpresaForm> {
       password: _passCtrl.text,
       telefono: _telefonoCtrl.text.trim(),
       rol: 'empresa',
+      nombreEmpresa: _nombreEmpresaCtrl.text.trim(),
+      nit: _nitCtrl.text.trim(),
     );
   }
 

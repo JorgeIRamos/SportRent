@@ -1,32 +1,32 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sport_rent/models/usuario_model.dart';
 
 class AuthService {
-  // Simula la sesión activa. Reemplazar con Firebase Auth.
-  static Usuario? _usuarioActual;
+  final _auth = FirebaseAuth.instance;
+  final _db = FirebaseFirestore.instance;
 
-  static Usuario? get usuarioActual => _usuarioActual;
+  Usuario? _usuarioActual;
+
+  AuthService();
+
+  Usuario? get usuarioActual => _usuarioActual;
 
   Future<Usuario> login(String email, String password) async {
-    await Future.delayed(Duration(milliseconds: 800));
-
-    // Mock: detecta rol por email para pruebas
-    final rol = email.contains('admin')
-        ? 'admin'
-        : email.contains('empresa')
-            ? 'empresa'
-            : 'cliente';
-
-    final usuario = Usuario(
-      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      nombre: rol == 'admin' ? 'Administrador' : rol == 'empresa' ? 'Mi Empresa' : 'Jorge Ramos',
+    final credential = await _auth.signInWithEmailAndPassword(
       email: email,
-      telefono: '3001234567',
-      rol: rol,
-      empresaId: rol == 'empresa' ? 'emp_001' : null,
+      password: password,
     );
 
-    _usuarioActual = usuario;
-    return usuario;
+    final doc = await _db
+        .collection('usuarios')
+        .doc(credential.user!.uid)
+        .get();
+
+    if (!doc.exists) throw Exception('Perfil de usuario no encontrado');
+
+    _usuarioActual = Usuario.fromJson({'id': doc.id, ...doc.data()!});
+    return _usuarioActual!;
   }
 
   Future<Usuario> register({
@@ -36,26 +36,57 @@ class AuthService {
     required String telefono,
     String rol = 'cliente',
   }) async {
-    await Future.delayed(Duration(milliseconds: 800));
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
 
     final usuario = Usuario(
-      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      id: credential.user!.uid,
       nombre: nombre,
       email: email,
       telefono: telefono,
       rol: rol,
+      empresaId: rol == 'empresa' ? credential.user!.uid : null,
     );
+
+    await _db
+        .collection('usuarios')
+        .doc(usuario.id)
+        .set(usuario.toJson());
 
     _usuarioActual = usuario;
     return usuario;
   }
 
+  Future<void> cambiarPassword({
+    required String emailActual,
+    required String passwordActual,
+    required String passwordNuevo,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No hay sesión activa');
+    final credential = EmailAuthProvider.credential(
+      email: emailActual,
+      password: passwordActual,
+    );
+    await user.reauthenticateWithCredential(credential);
+    await user.updatePassword(passwordNuevo);
+  }
+
   Future<void> logout() async {
-    await Future.delayed(Duration(milliseconds: 300));
+    await _auth.signOut();
     _usuarioActual = null;
   }
 
   Future<bool> isSessionActive() async {
-    return _usuarioActual != null;
+    final user = _auth.currentUser;
+    if (user == null) return false;
+
+    final doc = await _db.collection('usuarios').doc(user.uid).get();
+    if (!doc.exists) return false;
+
+    _usuarioActual = Usuario.fromJson({'id': doc.id, ...doc.data()!});
+    return true;
   }
 }

@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Notificacion {
   final String id;
   final String usuarioId;
@@ -34,6 +36,8 @@ class Notificacion {
     mensaje: json['mensaje'],
     tipo: json['tipo'] ?? 'sistema',
     leida: json['leida'] ?? false,
-    fecha: DateTime.parse(json['fecha']),
+    fecha: json['fecha'] is Timestamp
+        ? (json['fecha'] as Timestamp).toDate()
+        : DateTime.parse(json['fecha']),
   );
 }

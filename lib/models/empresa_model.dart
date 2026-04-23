@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Empresa {
   final String id;
   final String usuarioId;
@@ -30,6 +32,8 @@ class Empresa {
     nombreEmpresa: json['nombreEmpresa'],
     nit: json['nit'],
     verificada: json['verificada'] ?? false,
-    fechaRegistro: DateTime.parse(json['fechaRegistro']),
+    fechaRegistro: json['fechaRegistro'] is Timestamp
+        ? (json['fechaRegistro'] as Timestamp).toDate()
+        : DateTime.parse(json['fechaRegistro']),
   );
 }

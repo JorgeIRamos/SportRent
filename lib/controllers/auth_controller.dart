@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:sport_rent/controllers/empresa_controller.dart';
 import 'package:sport_rent/models/usuario_model.dart';
 import 'package:sport_rent/services/auth_service.dart';
 
@@ -12,6 +13,7 @@ class AuthController extends GetxController {
   bool get isLoggedIn => usuario.value != null;
   String get rol => usuario.value?.rol ?? '';
   String get nombre => usuario.value?.nombre ?? '';
+  String get email => usuario.value?.email ?? '';
   String get empresaId => usuario.value?.empresaId ?? '';
 
   @override
@@ -23,7 +25,7 @@ class AuthController extends GetxController {
   Future<void> _verificarSesion() async {
     final activa = await _authService.isSessionActive();
     if (activa) {
-      usuario.value = AuthService.usuarioActual;
+      usuario.value = _authService.usuarioActual;
     }
   }
 
@@ -54,6 +56,8 @@ class AuthController extends GetxController {
     required String password,
     required String telefono,
     String rol = 'cliente',
+    String? nombreEmpresa,
+    String? nit,
   }) async {
     if (nombre.isEmpty || email.isEmpty || password.isEmpty || telefono.isEmpty) {
       error.value = 'Completa todos los campos';
@@ -70,6 +74,11 @@ class AuthController extends GetxController {
       return;
     }
 
+    if (rol == 'empresa' && (nombreEmpresa == null || nombreEmpresa.isEmpty || nit == null || nit.isEmpty)) {
+      error.value = 'Ingresa el nombre de la empresa y el NIT';
+      return;
+    }
+
     try {
       isLoading.value = true;
       error.value = '';
@@ -82,6 +91,15 @@ class AuthController extends GetxController {
         rol: rol,
       );
       usuario.value = u;
+
+      if (rol == 'empresa') {
+        await Get.find<EmpresaController>().registrarEmpresa(
+          empresaId: u.empresaId!,
+          usuarioId: u.id,
+          nombreEmpresa: nombreEmpresa!,
+          nit: nit!,
+        );
+      }
 
       _redirigirSegunRol(u.rol);
     } catch (e) {

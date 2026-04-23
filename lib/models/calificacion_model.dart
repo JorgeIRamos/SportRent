@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Calificacion {
   final String id;
   final String usuarioId;
@@ -34,6 +36,8 @@ class Calificacion {
     reservaId: json['reservaId'],
     puntuacion: json['puntuacion'] ?? 1,
     comentario: json['comentario'] ?? '',
-    fecha: DateTime.parse(json['fecha']),
+    fecha: json['fecha'] is Timestamp
+        ? (json['fecha'] as Timestamp).toDate()
+        : DateTime.parse(json['fecha']),
   );
 }
