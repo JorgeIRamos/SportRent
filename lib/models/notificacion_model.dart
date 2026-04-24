@@ -26,8 +26,6 @@ class Notificacion {
     'mensaje': mensaje,
     'tipo': tipo,
     'leida': leida,
-    // Guardar como Timestamp evita problemas de ordenamiento/consulta en Firestore
-    // y mantiene un tipo consistente.
     'fecha': Timestamp.fromDate(fecha),
   };
 
@@ -44,7 +42,6 @@ class Notificacion {
       if (raw is Timestamp) return raw.toDate();
       if (raw is DateTime) return raw;
       if (raw is int) {
-        // por si viene como epoch millis
         return DateTime.fromMillisecondsSinceEpoch(raw);
       }
       if (raw is String) {
