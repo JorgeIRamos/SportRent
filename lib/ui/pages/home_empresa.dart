@@ -823,27 +823,193 @@ class _EstadisticasTab extends StatefulWidget {
 class _EstadisticasTabState extends State<_EstadisticasTab> {
   String _periodo = 'Semana';
   String? _filtroCancha;
-  String? _filtroHorario;
+  DateTime _fechaRef = DateTime.now();
 
-  final List<String> _canchas = ['Cancha Fútbol 5', 'Cancha Fútbol 11', 'Cancha de Tenis'];
-  final List<String> _horarios = ['Mañana (6–12h)', 'Tarde (12–18h)', 'Noche (18–24h)'];
+  late final ReservaController _reservaCtrl;
+  late final CanchaController _canchaCtrl;
 
-  // Datos simulados por período
-  List<double> get _datosReservas {
+  static const _meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  static const _mesesCortos = ['ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.',
+      'jul.', 'ago.', 'sep.', 'oct.', 'nov.', 'dic.'];
+
+  List<String> get _canchas =>
+      _canchaCtrl.canchas.map((c) => c.nombre).toSet().toList();
+
+  String get _etiquetaPeriodo {
     switch (_periodo) {
-      case 'Día': return [2, 3, 1, 4, 2, 3, 5, 2, 1, 3, 4, 2];
-      case 'Semana': return [12, 18, 9, 22, 15, 28, 20];
-      case 'Mes': return [85, 92, 78, 110];
-      default: return [12, 18, 9, 22, 15, 28, 20];
+      case 'Día':
+        return '${_fechaRef.day} ${_mesesCortos[_fechaRef.month - 1]} ${_fechaRef.year}';
+      case 'Semana':
+        final lunes = DateTime(_fechaRef.year, _fechaRef.month, _fechaRef.day)
+            .subtract(Duration(days: _fechaRef.weekday - 1));
+        final domingo = lunes.add(Duration(days: 6));
+        if (lunes.month == domingo.month) {
+          return '${lunes.day} – ${domingo.day} ${_mesesCortos[domingo.month - 1]} ${domingo.year}';
+        }
+        if (lunes.year == domingo.year) {
+          return '${lunes.day} ${_mesesCortos[lunes.month - 1]} – ${domingo.day} ${_mesesCortos[domingo.month - 1]} ${domingo.year}';
+        }
+        return '${lunes.day} ${_mesesCortos[lunes.month - 1]} ${lunes.year} – ${domingo.day} ${_mesesCortos[domingo.month - 1]} ${domingo.year}';
+      case 'Año':
+        return '${_fechaRef.year}';
+      case 'Mes':
+      default:
+        return '${_meses[_fechaRef.month - 1]} ${_fechaRef.year}';
+    }
+  }
+
+  void _irAntes() {
+    setState(() {
+      switch (_periodo) {
+        case 'Día':
+          _fechaRef = _fechaRef.subtract(Duration(days: 1));
+          break;
+        case 'Semana':
+          _fechaRef = _fechaRef.subtract(Duration(days: 7));
+          break;
+        case 'Año':
+          _fechaRef = DateTime(_fechaRef.year - 1, 1, 1);
+          break;
+        case 'Mes':
+          _fechaRef = DateTime(_fechaRef.year, _fechaRef.month - 1, 1);
+          break;
+      }
+    });
+  }
+
+  void _irAdelante() {
+    setState(() {
+      switch (_periodo) {
+        case 'Día':
+          _fechaRef = _fechaRef.add(Duration(days: 1));
+          break;
+        case 'Semana':
+          _fechaRef = _fechaRef.add(Duration(days: 7));
+          break;
+        case 'Año':
+          _fechaRef = DateTime(_fechaRef.year + 1, 1, 1);
+          break;
+        case 'Mes':
+          _fechaRef = DateTime(_fechaRef.year, _fechaRef.month + 1, 1);
+          break;
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _reservaCtrl = Get.find<ReservaController>();
+    _canchaCtrl = Get.find<CanchaController>();
+  }
+
+  List<Reserva> get _reservasPeriodo {
+    DateTime inicio;
+    DateTime fin;
+    switch (_periodo) {
+      case 'Día':
+        inicio = DateTime(_fechaRef.year, _fechaRef.month, _fechaRef.day);
+        fin = inicio.add(Duration(days: 1));
+        break;
+      case 'Semana':
+        inicio = DateTime(_fechaRef.year, _fechaRef.month, _fechaRef.day)
+            .subtract(Duration(days: _fechaRef.weekday - 1));
+        fin = inicio.add(Duration(days: 7));
+        break;
+      case 'Año':
+        inicio = DateTime(_fechaRef.year, 1, 1);
+        fin = DateTime(_fechaRef.year + 1, 1, 1);
+        break;
+      case 'Mes':
+      default:
+        inicio = DateTime(_fechaRef.year, _fechaRef.month, 1);
+        fin = DateTime(_fechaRef.year, _fechaRef.month + 1, 1);
+    }
+    return _reservaCtrl.reservas.where((r) {
+      if (r.fecha.isBefore(inicio) || !r.fecha.isBefore(fin)) return false;
+      if (_filtroCancha != null && r.nombreCancha != _filtroCancha) return false;
+      return true;
+    }).toList();
+  }
+
+  List<double> get _datosReservas {
+    final reservas = _reservasPeriodo;
+    switch (_periodo) {
+      case 'Día':
+        final counts = List.filled(12, 0.0);
+        for (final r in reservas) {
+          final hora = int.tryParse(r.horaInicio.split(':')[0]) ?? 0;
+          final idx = hora - 6;
+          if (idx >= 0 && idx < 12) counts[idx]++;
+        }
+        return counts;
+      case 'Semana':
+        final inicioSemana = DateTime(_fechaRef.year, _fechaRef.month, _fechaRef.day)
+            .subtract(Duration(days: _fechaRef.weekday - 1));
+        final counts = List.filled(7, 0.0);
+        for (final r in reservas) {
+          final diff = DateTime(r.fecha.year, r.fecha.month, r.fecha.day)
+              .difference(inicioSemana)
+              .inDays;
+          if (diff >= 0 && diff < 7) counts[diff]++;
+        }
+        return counts;
+      case 'Año':
+        final counts = List.filled(12, 0.0);
+        for (final r in reservas) {
+          counts[r.fecha.month - 1]++;
+        }
+        return counts;
+      case 'Mes':
+      default:
+        final counts = List.filled(4, 0.0);
+        for (final r in reservas) {
+          final semana = ((r.fecha.day - 1) ~/ 7).clamp(0, 3);
+          counts[semana]++;
+        }
+        return counts;
     }
   }
 
   List<double> get _datosIngresos {
+    final reservas = _reservasPeriodo
+        .where((r) => r.estado == 'confirmada' || r.estado == 'completada')
+        .toList();
     switch (_periodo) {
-      case 'Día': return [900, 1350, 450, 1800, 900, 1350, 2250, 900, 450, 1350, 1800, 900];
-      case 'Semana': return [5400, 8100, 4050, 9900, 6750, 12600, 9000];
-      case 'Mes': return [38250, 41400, 35100, 49500];
-      default: return [5400, 8100, 4050, 9900, 6750, 12600, 9000];
+      case 'Día':
+        final sums = List.filled(12, 0.0);
+        for (final r in reservas) {
+          final hora = int.tryParse(r.horaInicio.split(':')[0]) ?? 0;
+          final idx = hora - 6;
+          if (idx >= 0 && idx < 12) sums[idx] += r.montoTotal;
+        }
+        return sums;
+      case 'Semana':
+        final inicioSemana = DateTime(_fechaRef.year, _fechaRef.month, _fechaRef.day)
+            .subtract(Duration(days: _fechaRef.weekday - 1));
+        final sums = List.filled(7, 0.0);
+        for (final r in reservas) {
+          final diff = DateTime(r.fecha.year, r.fecha.month, r.fecha.day)
+              .difference(inicioSemana)
+              .inDays;
+          if (diff >= 0 && diff < 7) sums[diff] += r.montoTotal;
+        }
+        return sums;
+      case 'Año':
+        final sums = List.filled(12, 0.0);
+        for (final r in reservas) {
+          sums[r.fecha.month - 1] += r.montoTotal;
+        }
+        return sums;
+      case 'Mes':
+      default:
+        final sums = List.filled(4, 0.0);
+        for (final r in reservas) {
+          final semana = ((r.fecha.day - 1) ~/ 7).clamp(0, 3);
+          sums[semana] += r.montoTotal;
+        }
+        return sums;
     }
   }
 
@@ -851,38 +1017,86 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
     switch (_periodo) {
       case 'Día': return ['6h','7h','8h','9h','10h','11h','12h','13h','14h','15h','16h','17h'];
       case 'Semana': return ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-      case 'Mes': return ['Sem 1','Sem 2','Sem 3','Sem 4'];
-      default: return ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+      case 'Año':
+        return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      case 'Mes':
+      default: return ['Sem 1','Sem 2','Sem 3','Sem 4'];
     }
   }
 
-  double get _totalIngresos => _datosIngresos.fold(0, (a, b) => a + b);
-  double get _totalReservas => _datosReservas.fold(0, (a, b) => a + b);
+  double get _totalIngresos => _reservasPeriodo
+      .where((r) => r.estado == 'confirmada' || r.estado == 'completada')
+      .fold(0.0, (a, r) => a + r.montoTotal);
+
+  double get _totalReservas => _reservasPeriodo.length.toDouble();
+
   double get _ocupacion {
-    switch (_periodo) {
-      case 'Día': return 68;
-      case 'Semana': return 74;
-      case 'Mes': return 71;
-      default: return 74;
+    final total = _reservasPeriodo.length;
+    if (total == 0) return 0;
+    final activas = _reservasPeriodo
+        .where((r) => r.estado == 'confirmada' || r.estado == 'completada')
+        .length;
+    return activas / total * 100;
+  }
+
+  Map<String, int> get _distribucionCanchas {
+    final mapa = <String, int>{};
+    for (final r in _reservasPeriodo) {
+      final nombre = r.nombreCancha ?? 'Sin nombre';
+      mapa[nombre] = (mapa[nombre] ?? 0) + 1;
     }
+    return mapa;
+  }
+
+  List<MapEntry<String, int>> get _horasMasSolicitadas {
+    final mapa = <String, int>{};
+    for (final r in _reservasPeriodo) {
+      final key = '${r.horaInicio} – ${r.horaFin}';
+      mapa[key] = (mapa[key] ?? 0) + 1;
+    }
+    final sorted = mapa.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.take(5).toList();
+  }
+
+  double get _calificacionPromedio {
+    final canchas = _filtroCancha != null
+        ? _canchaCtrl.canchas.where((c) => c.nombre == _filtroCancha).toList()
+        : _canchaCtrl.canchas.toList();
+    final conCalif = canchas.where((c) => c.calificacionPromedio > 0).toList();
+    if (conCalif.isEmpty) return 0.0;
+    return conCalif.fold(0.0, (sum, c) => sum + c.calificacionPromedio) /
+        conCalif.length;
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildFiltros(),
-          _buildKpis(),
-          _buildSeccion('Reservas por período', _buildBarChart()),
-          _buildSeccion('Ingresos (COP)', _buildLineChart()),
-          _buildSeccion('Distribución por cancha', _buildPieChart()),
-          _buildSeccion('Horas más solicitadas', _buildHorasTable()),
-        ],
-      ),
-    );
+    return Obx(() {
+      _reservaCtrl.reservas.length;
+      _canchaCtrl.canchas.length;
+      if (_reservaCtrl.isLoading.value) {
+        return Center(
+          child: Padding(
+            padding: EdgeInsets.all(48),
+            child: CircularProgressIndicator(color: Colors.green[700]),
+          ),
+        );
+      }
+      return SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildFiltros(),
+            _buildKpis(),
+            _buildSeccion('Reservas por período', _buildBarChart()),
+            _buildSeccion('Ingresos (COP)', _buildLineChart()),
+            _buildSeccion('Distribución por cancha', _buildPieChart()),
+            _buildSeccion('Horas más solicitadas', _buildHorasTable()),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildFiltros() {
@@ -894,10 +1108,10 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
         children: [
           // Período
           Row(
-            children: ['Día', 'Semana', 'Mes'].map((p) {
+            children: ['Día', 'Semana', 'Mes', 'Año'].map((p) {
               final sel = _periodo == p;
               return GestureDetector(
-                onTap: () => setState(() => _periodo = p),
+                onTap: () => setState(() { _periodo = p; _fechaRef = DateTime.now(); }),
                 child: AnimatedContainer(
                   duration: Duration(milliseconds: 180),
                   margin: EdgeInsets.only(right: 8),
@@ -916,6 +1130,49 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
               );
             }).toList(),
           ),
+          ...[
+            SizedBox(height: 10),
+            // Navegación de período
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: _irAntes,
+                  child: Container(
+                    padding: EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.green[300]!),
+                    ),
+                    child: Icon(Icons.chevron_left, size: 20, color: Colors.green[800]),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  _etiquetaPeriodo,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green[900],
+                  ),
+                ),
+                SizedBox(width: 12),
+                GestureDetector(
+                  onTap: _irAdelante,
+                  child: Container(
+                    padding: EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.green[300]!),
+                    ),
+                    child: Icon(Icons.chevron_right, size: 20, color: Colors.green[800]),
+                  ),
+                ),
+              ],
+            ),
+          ],
           SizedBox(height: 10),
           // Cancha + Horario
           SingleChildScrollView(
@@ -929,16 +1186,9 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
                   onTap: () => _elegir(_canchas, _filtroCancha, (v) => setState(() => _filtroCancha = v)),
                 ),
                 SizedBox(width: 8),
-                _DropChip(
-                  label: _filtroHorario ?? 'Horario',
-                  icon: Icons.schedule_outlined,
-                  activo: _filtroHorario != null,
-                  onTap: () => _elegir(_horarios, _filtroHorario, (v) => setState(() => _filtroHorario = v)),
-                ),
-                SizedBox(width: 8),
-                if (_filtroCancha != null || _filtroHorario != null)
+                if (_filtroCancha != null)
                   GestureDetector(
-                    onTap: () => setState(() { _filtroCancha = null; _filtroHorario = null; }),
+                    onTap: () => setState(() { _filtroCancha = null; }),
                     child: Container(
                       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -1027,7 +1277,9 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
               SizedBox(width: 10),
               _KpiCard(
                   titulo: 'Calificación',
-                  valor: '4.6 ★',
+                  valor: _calificacionPromedio == 0
+                      ? 'N/D'
+                      : '${_calificacionPromedio.toStringAsFixed(1)} ★',
                   sub: 'Promedio',
                   icono: Icons.star_outline,
                   color: Colors.amber[700]!),
@@ -1041,7 +1293,8 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
   Widget _buildBarChart() {
     final datos = _datosReservas;
     final etiq = _etiquetas;
-    final maxY = datos.reduce((a, b) => a > b ? a : b) * 1.3;
+    final maxRaw = datos.isEmpty ? 0.0 : datos.reduce((a, b) => a > b ? a : b);
+    final maxY = maxRaw == 0 ? 5.0 : maxRaw * 1.3;
 
     return SizedBox(
       height: 200,
@@ -1098,7 +1351,8 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
 
   Widget _buildLineChart() {
     final datos = _datosIngresos;
-    final maxY = datos.reduce((a, b) => a > b ? a : b) * 1.25;
+    final maxRaw = datos.isEmpty ? 0.0 : datos.reduce((a, b) => a > b ? a : b);
+    final maxY = maxRaw == 0 ? 5000.0 : maxRaw * 1.25;
 
     return SizedBox(
       height: 200,
@@ -1164,14 +1418,37 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
   }
 
   Widget _buildPieChart() {
-    final secciones = [
-      PieChartSectionData(value: 48, color: Colors.green[600], title: '48%',
-          radius: 60, titleStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-      PieChartSectionData(value: 34, color: Colors.lightGreen[500], title: '34%',
-          radius: 60, titleStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-      PieChartSectionData(value: 18, color: Colors.teal[400], title: '18%',
-          radius: 60, titleStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+    final distribucion = _distribucionCanchas;
+    if (distribucion.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text('Sin datos para el período seleccionado',
+              style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+        ),
+      );
+    }
+    final colores = [
+      Colors.green[600]!,
+      Colors.lightGreen[500]!,
+      Colors.teal[400]!,
+      Colors.orange[400]!,
+      Colors.blue[400]!,
     ];
+    final entradas = distribucion.entries.toList();
+    final total = entradas.fold<int>(0, (s, e) => s + e.value);
+    final secciones = entradas.asMap().entries.map((entry) {
+      final idx = entry.key;
+      final e = entry.value;
+      final pct = (e.value / total * 100).toStringAsFixed(0);
+      return PieChartSectionData(
+        value: e.value.toDouble(),
+        color: colores[idx % colores.length],
+        title: '$pct%',
+        radius: 60,
+        titleStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+      );
+    }).toList();
 
     return Row(
       children: [
@@ -1188,13 +1465,13 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Leyenda(color: Colors.green[600]!, texto: 'Cancha Fútbol 5'),
-              SizedBox(height: 8),
-              _Leyenda(color: Colors.lightGreen[500]!, texto: 'Cancha Fútbol 11'),
-              SizedBox(height: 8),
-              _Leyenda(color: Colors.teal[400]!, texto: 'Cancha de Tenis'),
-            ],
+            children: entradas.asMap().entries.map((entry) => Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: _Leyenda(
+                color: colores[entry.key % colores.length],
+                texto: entry.value.key,
+              ),
+            )).toList(),
           ),
         ),
       ],
@@ -1202,14 +1479,17 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
   }
 
   Widget _buildHorasTable() {
-    final horas = [
-      {'hora': '18:00 – 19:00', 'reservas': 28, 'pct': 0.92},
-      {'hora': '19:00 – 20:00', 'reservas': 26, 'pct': 0.85},
-      {'hora': '17:00 – 18:00', 'reservas': 22, 'pct': 0.72},
-      {'hora': '08:00 – 09:00', 'reservas': 18, 'pct': 0.59},
-      {'hora': '20:00 – 21:00', 'reservas': 15, 'pct': 0.49},
-    ];
-
+    final horas = _horasMasSolicitadas;
+    if (horas.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text('Sin reservas en el período seleccionado',
+              style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+        ),
+      );
+    }
+    final maxVal = horas.first.value;
     return Column(
       children: horas.map((h) => Padding(
             padding: EdgeInsets.only(bottom: 10),
@@ -1217,7 +1497,7 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
               children: [
                 SizedBox(
                   width: 110,
-                  child: Text(h['hora'] as String,
+                  child: Text(h.key,
                       style: TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w500)),
                 ),
                 SizedBox(width: 10),
@@ -1225,7 +1505,7 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: h['pct'] as double,
+                      value: maxVal > 0 ? h.value / maxVal : 0,
                       backgroundColor: Colors.grey[200],
                       color: Colors.green[600],
                       minHeight: 8,
@@ -1233,7 +1513,7 @@ class _EstadisticasTabState extends State<_EstadisticasTab> {
                   ),
                 ),
                 SizedBox(width: 10),
-                Text('${h['reservas']}',
+                Text('${h.value}',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green[700])),
               ],
             ),

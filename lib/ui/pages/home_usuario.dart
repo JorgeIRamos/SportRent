@@ -31,6 +31,7 @@ class _HomeUsuarioState extends State<HomeUsuario> {
   bool _soloFavoritos = false;
   int _navIndex = 0;
   Worker? _uidWorker;
+  Worker? _tabWorker;
 
   static const _deportes = ['Fútbol', 'Baloncesto', 'Tenis', 'Pádel', 'Voleibol', 'Béisbol'];
 
@@ -46,6 +47,12 @@ class _HomeUsuarioState extends State<HomeUsuario> {
         if (u != null) _cargarDatosUsuario(u.id);
       });
     }
+    _tabWorker = ever(_reservaCtrl.tabSolicitud, (tab) {
+      if (tab >= 0 && mounted) {
+        setState(() => _navIndex = tab);
+        _reservaCtrl.tabSolicitud.value = -1;
+      }
+    });
   }
 
   void _cargarDatosUsuario(String uid) {
@@ -58,6 +65,7 @@ class _HomeUsuarioState extends State<HomeUsuario> {
   void dispose() {
     _buscarCtrl.dispose();
     _uidWorker?.dispose();
+    _tabWorker?.dispose();
     super.dispose();
   }
 

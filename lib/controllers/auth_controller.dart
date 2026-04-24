@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sport_rent/controllers/empresa_controller.dart';
 import 'package:sport_rent/models/usuario_model.dart';
@@ -91,8 +92,6 @@ class AuthController extends GetxController {
         telefono: telefono,
         rol: rol,
       );
-      usuario.value = u;
-
       if (rol == 'empresa') {
         await Get.find<EmpresaController>().registrarEmpresa(
           empresaId: u.empresaId!,
@@ -102,7 +101,16 @@ class AuthController extends GetxController {
         );
       }
 
-      _redirigirSegunRol(u.rol);
+      await _authService.logout();
+      usuario.value = null;
+
+      Get.snackbar(
+        'Registro exitoso',
+        'Tu cuenta fue creada. Inicia sesión para continuar.',
+        backgroundColor: Colors.green[100],
+        colorText: Colors.black87,
+      );
+      Get.offAllNamed('/login');
     } catch (e) {
       error.value = 'Error al registrarse. Intenta de nuevo.';
     } finally {

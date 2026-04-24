@@ -11,12 +11,14 @@ class ReservaController extends GetxController {
   final _reservaService = ReservaService();
   final _canchaService = CanchaService();
   final _empresaService = EmpresaService();
-  NotificacionController get _notificacionCtrl => Get.find<NotificacionController>();
+  NotificacionController get _notificacionCtrl =>
+      Get.find<NotificacionController>();
 
   final RxList<Reserva> reservas = <Reserva>[].obs;
   final RxBool isLoading = false.obs;
   final RxString error = ''.obs;
   final RxString filtroEstado = 'Todas'.obs;
+  final RxInt tabSolicitud = (-1).obs;
 
   static const String pendiente = 'pendiente';
   static const String confirmada = 'confirmada';
@@ -37,13 +39,23 @@ class ReservaController extends GetxController {
       .toList();
 
   List<Reserva> get historial => reservas
-      .where((r) => r.estado == completada || r.estado == cancelada || r.estado == rechazada)
+      .where(
+        (r) =>
+            r.estado == completada ||
+            r.estado == cancelada ||
+            r.estado == rechazada,
+      )
       .toList();
 
-  int get totalConfirmadas => reservas.where((r) => r.estado == confirmada).length;
-  int get totalPendientes => reservas.where((r) => r.estado == pendiente).length;
-  int get totalCanceladas => reservas.where((r) => r.estado == cancelada || r.estado == rechazada).length;
-  int get totalCompletadas => reservas.where((r) => r.estado == completada).length;
+  int get totalConfirmadas =>
+      reservas.where((r) => r.estado == confirmada).length;
+  int get totalPendientes =>
+      reservas.where((r) => r.estado == pendiente).length;
+  int get totalCanceladas => reservas
+      .where((r) => r.estado == cancelada || r.estado == rechazada)
+      .length;
+  int get totalCompletadas =>
+      reservas.where((r) => r.estado == completada).length;
 
   Future<void> cargarReservasUsuario(String usuarioId) async {
     try {
@@ -125,13 +137,16 @@ class ReservaController extends GetxController {
       try {
         final cancha = await _canchaService.obtenerCancha(canchaId);
         if (cancha != null) {
-          final empresa = await _empresaService.obtenerEmpresa(cancha.empresaId);
+          final empresa = await _empresaService.obtenerEmpresa(
+            cancha.empresaId,
+          );
           if (empresa != null) {
             final notif = Notificacion(
               id: '',
               usuarioId: empresa.usuarioId,
               titulo: 'Nueva reserva pendiente',
-              mensaje: 'Tienes una nueva reserva pendiente para ${nombreCancha ?? 'la cancha'} el ${fecha.day}/${fecha.month} a las $horaInicio. Revisa y confirma.',
+              mensaje:
+                  'Tienes una nueva reserva pendiente para ${nombreCancha ?? 'la cancha'} el ${fecha.day}/${fecha.month} a las $horaInicio. Revisa y confirma.',
               tipo: 'reserva',
             );
             await _notificacionCtrl.crearNotificacion(notif);
@@ -141,8 +156,6 @@ class ReservaController extends GetxController {
         // Ignorar error de notificación
       }
 
-      Get.snackbar('Reserva creada', 'Tu reserva está pendiente de confirmación',
-          backgroundColor: Colors.green[100], colorText: Colors.black87);
       return true;
     } catch (e) {
       error.value = 'No se pudo crear la reserva';
@@ -152,24 +165,44 @@ class ReservaController extends GetxController {
     }
   }
 
-  Future<void> cancelarReserva(String reservaId) async =>
-      _cambiarEstado(reservaId, cancelada, mensaje: 'Reserva cancelada correctamente');
+  Future<void> cancelarReserva(String reservaId) async => _cambiarEstado(
+    reservaId,
+    cancelada,
+    mensaje: 'Reserva cancelada correctamente',
+  );
 
-  Future<void> rechazarReserva(String reservaId) async =>
-      _cambiarEstado(reservaId, rechazada, mensaje: 'Reserva rechazada', notificarCliente: true);
+  Future<void> rechazarReserva(String reservaId) async => _cambiarEstado(
+    reservaId,
+    rechazada,
+    mensaje: 'Reserva rechazada',
+    notificarCliente: true,
+  );
 
-  Future<void> confirmarReserva(String reservaId) async =>
-      _cambiarEstado(reservaId, confirmada, mensaje: 'Reserva confirmada', notificarCliente: true);
+  Future<void> confirmarReserva(String reservaId) async => _cambiarEstado(
+    reservaId,
+    confirmada,
+    mensaje: 'Reserva confirmada',
+    notificarCliente: true,
+  );
 
-  Future<void> completarReserva(String reservaId) async =>
-      _cambiarEstado(reservaId, completada, mensaje: 'Reserva marcada como completada');
+  Future<void> completarReserva(String reservaId) async => _cambiarEstado(
+    reservaId,
+    completada,
+    mensaje: 'Reserva marcada como completada',
+  );
 
-  Future<void> _cambiarEstado(String reservaId, String nuevoEstado,
-      {required String mensaje, bool notificarCliente = false}) async {
+  Future<void> _cambiarEstado(
+    String reservaId,
+    String nuevoEstado, {
+    required String mensaje,
+    bool notificarCliente = false,
+  }) async {
     try {
       isLoading.value = true;
 
-      await _reservaService.actualizarReserva(reservaId, {'estado': nuevoEstado});
+      await _reservaService.actualizarReserva(reservaId, {
+        'estado': nuevoEstado,
+      });
 
       final index = reservas.indexWhere((r) => r.id == reservaId);
       if (index != -1) {
@@ -182,7 +215,9 @@ class ReservaController extends GetxController {
             final notif = Notificacion(
               id: '',
               usuarioId: reserva.usuarioId,
-              titulo: nuevoEstado == confirmada ? 'Reserva confirmada' : 'Reserva rechazada',
+              titulo: nuevoEstado == confirmada
+                  ? 'Reserva confirmada'
+                  : 'Reserva rechazada',
               mensaje: nuevoEstado == confirmada
                   ? 'Tu reserva para ${reserva.nombreCancha ?? 'la cancha'} el ${reserva.fecha.day}/${reserva.fecha.month} a las ${reserva.horaInicio} ha sido confirmada.'
                   : 'Tu reserva para ${reserva.nombreCancha ?? 'la cancha'} el ${reserva.fecha.day}/${reserva.fecha.month} a las ${reserva.horaInicio} ha sido rechazada.',
@@ -192,8 +227,12 @@ class ReservaController extends GetxController {
           } catch (_) {}
         }
 
-        Get.snackbar('Listo', mensaje,
-            backgroundColor: Colors.green[100], colorText: Colors.black87);
+        Get.snackbar(
+          'Listo',
+          mensaje,
+          backgroundColor: Colors.green[100],
+          colorText: Colors.black87,
+        );
       }
     } catch (e) {
       error.value = 'Error al actualizar la reserva';

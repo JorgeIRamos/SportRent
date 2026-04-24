@@ -28,8 +28,13 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
 
   List<String> get _slotsDelDia {
     const nombres = {
-      1: 'lunes', 2: 'martes', 3: 'miércoles',
-      4: 'jueves', 5: 'viernes', 6: 'sábado', 7: 'domingo',
+      1: 'lunes',
+      2: 'martes',
+      3: 'miércoles',
+      4: 'jueves',
+      5: 'viernes',
+      6: 'sábado',
+      7: 'domingo',
     };
     final diaActual = nombres[_fechaSeleccionada.weekday] ?? '';
     for (final h in widget.cancha.horariosDisponibles) {
@@ -42,6 +47,7 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
         final p = t.split(':');
         return int.parse(p[0]) * 60 + int.parse(p[1]);
       }
+
       String toStr(int m) =>
           '${(m ~/ 60).toString().padLeft(2, '0')}:${(m % 60).toString().padLeft(2, '0')}';
       final inicio = toMin(tiempos[0].trim());
@@ -56,14 +62,27 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
     if (_horaSeleccionada == null) return '';
     final slots = _slotsDelDia;
     final idx = slots.indexOf(_horaSeleccionada!);
-    if (idx == -1 || idx + 1 >= slots.length) return '';
-    return slots[idx + 1];
+    if (idx != -1 && idx + 1 < slots.length) {
+      return slots[idx + 1];
+    }
+    final partes = _horaSeleccionada!.split(':');
+    if (partes.length != 2) return '';
+    final hora = int.tryParse(partes[0]) ?? 0;
+    final minutos = int.tryParse(partes[1]) ?? 0;
+    final fin =
+        Duration(hours: hora, minutes: minutos) + const Duration(hours: 1);
+    return '${fin.inHours.toString().padLeft(2, '0')}:${(fin.inMinutes % 60).toString().padLeft(2, '0')}';
   }
 
   Set<int> get _diasDisponibles {
     const map = {
-      'lunes': 1, 'martes': 2, 'miércoles': 3,
-      'jueves': 4, 'viernes': 5, 'sábado': 6, 'domingo': 7,
+      'lunes': 1,
+      'martes': 2,
+      'miércoles': 3,
+      'jueves': 4,
+      'viernes': 5,
+      'sábado': 6,
+      'domingo': 7,
     };
     return widget.cancha.horariosDisponibles
         .map((h) => map[h.split(' ').first.toLowerCase()] ?? 0)
@@ -107,16 +126,21 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
     try {
       final f = _fechaSeleccionada;
       final fechaDia = _fechaDia(f);
-      final reservas = await _reservaService.obtenerPorCanchaYFecha(widget.cancha.id, fechaDia);
+      final reservas = await _reservaService.obtenerPorCanchaYFecha(
+        widget.cancha.id,
+        fechaDia,
+      );
       if (reservas.isEmpty) {
         final todas = await _reservaService.obtenerPorCancha(widget.cancha.id);
         setState(() {
           _horasOcupadas = todas
-              .where((r) =>
-                  r.fecha.year == f.year &&
-                  r.fecha.month == f.month &&
-                  r.fecha.day == f.day &&
-                  (r.estado == 'pendiente' || r.estado == 'confirmada'))
+              .where(
+                (r) =>
+                    r.fecha.year == f.year &&
+                    r.fecha.month == f.month &&
+                    r.fecha.day == f.day &&
+                    (r.estado == 'pendiente' || r.estado == 'confirmada'),
+              )
               .map((r) => r.horaInicio)
               .toSet();
         });
@@ -141,11 +165,13 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
       initialDate: _fechaSeleccionada,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 60)),
-      selectableDayPredicate: dias.isEmpty ? null : (day) => dias.contains(day.weekday),
+      selectableDayPredicate: dias.isEmpty
+          ? null
+          : (day) => dias.contains(day.weekday),
       builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: ColorScheme.light(primary: Colors.green[700]!),
-        ),
+        data: Theme.of(
+          ctx,
+        ).copyWith(colorScheme: ColorScheme.light(primary: Colors.green[700]!)),
         child: child!,
       ),
     );
@@ -161,15 +187,23 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
 
   Future<void> _confirmarReserva() async {
     if (!_authCtrl.isLoggedIn) {
-      Get.snackbar('Inicia sesión', 'Necesitas una cuenta para reservar',
-          backgroundColor: Colors.orange[50], colorText: Colors.orange[800],
-          icon: Icon(Icons.login, color: Colors.orange[700]));
+      Get.snackbar(
+        'Inicia sesión',
+        'Necesitas una cuenta para reservar',
+        backgroundColor: Colors.orange[50],
+        colorText: Colors.orange[800],
+        icon: Icon(Icons.login, color: Colors.orange[700]),
+      );
       Get.toNamed('/login');
       return;
     }
     if (_horaSeleccionada == null) {
-      Get.snackbar('Selecciona un horario', 'Elige una hora disponible para continuar',
-          backgroundColor: Colors.orange[50], colorText: Colors.orange[800]);
+      Get.snackbar(
+        'Selecciona un horario',
+        'Elige una hora disponible para continuar',
+        backgroundColor: Colors.orange[50],
+        colorText: Colors.orange[800],
+      );
       return;
     }
     final ok = await _reservaCtrl.crearReserva(
@@ -182,7 +216,41 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
       nombreCliente: _authCtrl.nombre,
       nombreCancha: widget.cancha.nombre,
     );
-    if (ok) Get.back();
+    if (ok) {
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: Colors.green[50],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green[700], size: 28),
+              const SizedBox(width: 12),
+              Text(
+                'Reserva realizada con éxito',
+                style: TextStyle(color: Colors.green[800], fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Text(
+            'Tu reserva está pendiente de confirmación. Revisa tus reservas para ver el estado.',
+            style: TextStyle(color: Colors.black87),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _reservaCtrl.tabSolicitud.value = 1;
+                Get.back();
+              },
+              child: Text('Aceptar', style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Color _colorDeporte(String deporte) {
@@ -207,8 +275,18 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
   String _formatFecha(DateTime f) {
     const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     const meses = [
-      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
     ];
     return '${dias[f.weekday - 1]}, ${f.day} de ${meses[f.month - 1]} de ${f.year}';
   }
@@ -231,7 +309,10 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text('Disponibilidad', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Disponibilidad',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: Colors.green[100],
         foregroundColor: Colors.black,
@@ -263,9 +344,10 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
                         child: Text(
                           _formatFecha(_fechaSeleccionada),
                           style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
                         ),
                       ),
                       Icon(Icons.keyboard_arrow_down, color: Colors.grey[600]),
@@ -281,46 +363,57 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
               child: _cargandoSlots
                   ? Center(
                       child: Padding(
-                      padding: EdgeInsets.all(20),
-                      child:
-                          CircularProgressIndicator(color: Colors.green[700]),
-                    ))
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(
+                          color: Colors.green[700],
+                        ),
+                      ),
+                    )
                   : _buildGridHoras(),
             ),
-            if (_horaSeleccionada != null) ...[
-              _buildResumen(cancha),
-            ],
+            if (_horaSeleccionada != null) ...[_buildResumen(cancha)],
             Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 32),
-              child: Obx(() => ElevatedButton(
-                    onPressed: _reservaCtrl.isLoading.value ? null : _confirmarReserva,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green[700],
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey[300],
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      elevation: 0,
+              child: Obx(
+                () => ElevatedButton(
+                  onPressed: _reservaCtrl.isLoading.value
+                      ? null
+                      : _confirmarReserva,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[300],
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    child: _reservaCtrl.isLoading.value
-                        ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2))
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.check_circle_outline, size: 20),
-                              SizedBox(width: 8),
-                              Text('Confirmar Reserva',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold)),
-                            ],
+                    elevation: 0,
+                  ),
+                  child: _reservaCtrl.isLoading.value
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
                           ),
-                  )),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle_outline, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Confirmar Reserva',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
             ),
           ],
         ),
@@ -409,48 +502,69 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(cancha.nombre,
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87)),
+                          Text(
+                            cancha.nombre,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
                           SizedBox(height: 6),
                           Row(
                             children: [
                               Container(
                                 padding: EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                    color: color.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(20)),
-                                child: Text(cancha.tipoDeporte,
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: color,
-                                        fontWeight: FontWeight.w600)),
+                                  color: color.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  cancha.tipoDeporte,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: color,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                               SizedBox(width: 10),
-                              Icon(Icons.star,
-                                  size: 14, color: Colors.amber[600]),
+                              Icon(
+                                Icons.star,
+                                size: 14,
+                                color: Colors.amber[600],
+                              ),
                               SizedBox(width: 3),
                               Text(
-                                  cancha.calificacionPromedio
-                                      .toStringAsFixed(1),
-                                  style: TextStyle(
-                                      fontSize: 13, color: Colors.grey[700])),
+                                cancha.calificacionPromedio.toStringAsFixed(1),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
                             ],
                           ),
                           SizedBox(height: 4),
                           Row(
                             children: [
-                              Icon(Icons.location_on_outlined,
-                                  size: 13, color: Colors.green[600]),
+                              Icon(
+                                Icons.location_on_outlined,
+                                size: 13,
+                                color: Colors.green[600],
+                              ),
                               SizedBox(width: 3),
                               Expanded(
-                                child: Text(cancha.direccion,
-                                    style: TextStyle(
-                                        fontSize: 12, color: Colors.grey[600]),
-                                    overflow: TextOverflow.ellipsis),
+                                child: Text(
+                                  cancha.direccion,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),
@@ -461,14 +575,21 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('\$${_formatPrecio(cancha.precioPorHora)}',
-                            style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green[700])),
-                        Text('por hora',
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.grey[600])),
+                        Text(
+                          '\$${_formatPrecio(cancha.precioPorHora)}',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                        Text(
+                          'por hora',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -485,16 +606,24 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
     if (url.startsWith('data:')) {
       try {
         final bytes = base64Decode(url.split(',').last);
-        return Image.memory(bytes,
-            height: 220, width: double.infinity, fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _placeholderImagen(color));
+        return Image.memory(
+          bytes,
+          height: 220,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _placeholderImagen(color),
+        );
       } catch (_) {
         return _placeholderImagen(color);
       }
     }
-    return Image.network(url,
-        height: 220, width: double.infinity, fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _placeholderImagen(color));
+    return Image.network(
+      url,
+      height: 220,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => _placeholderImagen(color),
+    );
   }
 
   Widget _placeholderImagen(Color color) {
@@ -503,8 +632,11 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
       width: double.infinity,
       color: color.withValues(alpha: 0.15),
       child: Center(
-        child: Icon(Icons.sports_soccer_outlined,
-            size: 80, color: color.withValues(alpha: 0.4)),
+        child: Icon(
+          Icons.sports_soccer_outlined,
+          size: 80,
+          color: color.withValues(alpha: 0.4),
+        ),
       ),
     );
   }
@@ -539,7 +671,8 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
           onTap: ocupada
               ? null
               : () => setState(
-                  () => _horaSeleccionada = seleccionada ? null : slot),
+                  () => _horaSeleccionada = seleccionada ? null : slot,
+                ),
           child: AnimatedContainer(
             duration: Duration(milliseconds: 180),
             width: 72,
@@ -551,24 +684,28 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
             ),
             child: Column(
               children: [
-                Text(slot,
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: textColor)),
+                Text(
+                  slot,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
                 SizedBox(height: 2),
                 Text(
                   ocupada
                       ? 'Ocupado'
                       : seleccionada
-                          ? '✓ Selec.'
-                          : 'Libre',
+                      ? '✓ Selec.'
+                      : 'Libre',
                   style: TextStyle(
-                      fontSize: 9,
-                      color: textColor,
-                      fontWeight: seleccionada
-                          ? FontWeight.bold
-                          : FontWeight.normal),
+                    fontSize: 9,
+                    color: textColor,
+                    fontWeight: seleccionada
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
                 ),
               ],
             ),
@@ -589,7 +726,9 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
           border: Border.all(color: Colors.green[200]!),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05), blurRadius: 6)
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 6,
+            ),
           ],
         ),
         child: Column(
@@ -597,45 +736,63 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
           children: [
             Row(
               children: [
-                Icon(Icons.receipt_long_outlined,
-                    size: 18, color: Colors.green[700]),
+                Icon(
+                  Icons.receipt_long_outlined,
+                  size: 18,
+                  color: Colors.green[700],
+                ),
                 SizedBox(width: 6),
-                Text('Resumen de tu reserva',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87)),
+                Text(
+                  'Resumen de tu reserva',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
               ],
             ),
             SizedBox(height: 12),
             _ResumenFila(
-                icono: Icons.sports_soccer_outlined,
-                label: 'Cancha',
-                valor: cancha.nombre),
+              icono: Icons.sports_soccer_outlined,
+              label: 'Cancha',
+              valor: cancha.nombre,
+            ),
             _ResumenFila(
-                icono: Icons.calendar_today_outlined,
-                label: 'Fecha',
-                valor: _formatFecha(_fechaSeleccionada)),
+              icono: Icons.calendar_today_outlined,
+              label: 'Fecha',
+              valor: _formatFecha(_fechaSeleccionada),
+            ),
             _ResumenFila(
-                icono: Icons.schedule_outlined,
-                label: 'Horario',
-                valor: '$_horaSeleccionada – $_horaFin'),
+              icono: Icons.schedule_outlined,
+              label: 'Horario',
+              valor: '$_horaSeleccionada – $_horaFin',
+            ),
             _ResumenFila(
-                icono: Icons.timer_outlined, label: 'Duración', valor: '1 hora'),
+              icono: Icons.timer_outlined,
+              label: 'Duración',
+              valor: '1 hora',
+            ),
             Divider(height: 20, color: Colors.grey[200]),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Total a pagar',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: Colors.black87)),
-                Text('\$${_formatPrecio(cancha.precioPorHora)}',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[700])),
+                Text(
+                  'Total a pagar',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  '\$${_formatPrecio(cancha.precioPorHora)}',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green[700],
+                  ),
+                ),
               ],
             ),
           ],
@@ -659,17 +816,22 @@ class _DisponibilidadCanchaState extends State<DisponibilidadCancha> {
             children: [
               Icon(icono, size: 18, color: Colors.green[700]),
               SizedBox(width: 6),
-              Text(titulo,
-                  style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87)),
+              Text(
+                titulo,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
             ],
           ),
           if (subtitulo != null) ...[
             SizedBox(height: 3),
-            Text(subtitulo,
-                style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+            Text(
+              subtitulo,
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
           ],
           SizedBox(height: 10),
           child,
@@ -683,8 +845,11 @@ class _ResumenFila extends StatelessWidget {
   final IconData icono;
   final String label;
   final String valor;
-  const _ResumenFila(
-      {required this.icono, required this.label, required this.valor});
+  const _ResumenFila({
+    required this.icono,
+    required this.label,
+    required this.valor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -694,16 +859,18 @@ class _ResumenFila extends StatelessWidget {
         children: [
           Icon(icono, size: 15, color: Colors.grey[500]),
           SizedBox(width: 8),
-          Text(label,
-              style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
           Spacer(),
           Flexible(
-            child: Text(valor,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87),
-                textAlign: TextAlign.right),
+            child: Text(
+              valor,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.right,
+            ),
           ),
         ],
       ),
