@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:sport_rent/controllers/auth_controller.dart';
 import 'package:sport_rent/controllers/cancha_controller.dart';
 import 'package:sport_rent/controllers/empresa_controller.dart';
 import 'package:sport_rent/models/cancha_model.dart';
 import 'package:sport_rent/ui/widgets/custom_buttom.dart';
 import 'package:sport_rent/ui/widgets/custom_text_field.dart';
+import 'map_location_picker.dart';
 import 'registrar_canchas_widgets.dart';
 
 class RegistrarCancha extends StatefulWidget {
@@ -28,6 +30,7 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
   final _precioCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
 
+  LatLng? _selectedLatLng;
   String? _deporteSeleccionado;
 
   static const _deportes = ['Fútbol', 'Baloncesto', 'Tenis', 'Pádel', 'Voleibol', 'Béisbol'];
@@ -51,6 +54,9 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
       _fotosUrls.addAll(c.fotosUrl);
       _subiendo.addAll(List.filled(c.fotosUrl.length, false));
       _horarios.addAll(c.horariosDisponibles.map(_parseHorario));
+      if (c.latitud != 0 || c.longitud != 0) {
+        _selectedLatLng = LatLng(c.latitud, c.longitud);
+      }
     }
   }
 
@@ -81,6 +87,21 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
 
   void _eliminarHorario(int index) {
     setState(() => _horarios.removeAt(index));
+  }
+
+  Future<void> _abrirMapaPicker() async {
+    final result = await Navigator.push<MapLocationResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapLocationPicker(initialPosition: _selectedLatLng),
+      ),
+    );
+    if (result != null) {
+      setState(() {
+        _selectedLatLng = result.latLng;
+        _direccionCtrl.text = result.direccion;
+      });
+    }
   }
 
   Future<void> _agregarFoto() async {
@@ -150,6 +171,9 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
     final fotos = List<String>.from(_fotosUrls.where((u) => u.isNotEmpty));
     final horarios = _horarios.map((h) => '${h['dia']} ${h['inicio']}-${h['fin']}').toList();
 
+    final latitud = _selectedLatLng?.latitude ?? 0.0;
+    final longitud = _selectedLatLng?.longitude ?? 0.0;
+
     if (_modoEdicion) {
       final original = widget.cancha!;
       final actualizada = Cancha(
@@ -160,8 +184,8 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
         descripcion: _descripcionCtrl.text.trim(),
         precioPorHora: precio,
         direccion: _direccionCtrl.text.trim(),
-        latitud: original.latitud,
-        longitud: original.longitud,
+        latitud: latitud != 0 ? latitud : original.latitud,
+        longitud: longitud != 0 ? longitud : original.longitud,
         fotosUrl: fotos,
         horariosDisponibles: horarios,
         calificacionPromedio: original.calificacionPromedio,
@@ -178,8 +202,8 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
         descripcion: _descripcionCtrl.text.trim(),
         precioPorHora: precio,
         direccion: _direccionCtrl.text.trim(),
-        latitud: 0,
-        longitud: 0,
+        latitud: latitud,
+        longitud: longitud,
         fotosUrl: fotos,
         horariosDisponibles: horarios,
       );
@@ -307,8 +331,7 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
                 controller: _descripcionCtrl),
             customField('Precio por hora (COP)', Icons.attach_money_outlined,
                 controller: _precioCtrl, keyboardType: TextInputType.number),
-            customField('Dirección', Icons.location_on_outlined,
-                controller: _direccionCtrl),
+            _campoDireccion(),
 
             _seccionTitulo('Tipo de deporte'),
             Padding(
@@ -470,6 +493,44 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
                 )),
             const SizedBox(height: 30),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _campoDireccion() {
+    final tieneUbicacion = _selectedLatLng != null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 30.0),
+      child: TextField(
+        controller: _direccionCtrl,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          labelText: 'Dirección o nombre del lugar',
+          prefixIcon: Icon(
+            Icons.location_on_outlined,
+            color: tieneUbicacion ? Colors.green[700] : null,
+          ),
+          suffixIcon: IconButton(
+            tooltip: 'Seleccionar en mapa',
+            icon: Icon(Icons.map_outlined,
+                color: tieneUbicacion ? Colors.green[700] : Colors.grey[600]),
+            onPressed: _abrirMapaPicker,
+          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(
+              color: tieneUbicacion ? Colors.green : Colors.grey.shade400,
+              width: tieneUbicacion ? 2 : 1,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide(color: Colors.green[700]!, width: 2),
+          ),
+          filled: true,
+          fillColor: Colors.grey[50],
         ),
       ),
     );

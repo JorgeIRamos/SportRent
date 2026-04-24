@@ -58,6 +58,7 @@ class CanchaCard extends StatefulWidget {
   final bool mostrarFavorito;
   final bool esFavorito;
   final VoidCallback? onToggleFavorito;
+  final double? distanciaKm;
 
   const CanchaCard({
     super.key,
@@ -65,6 +66,7 @@ class CanchaCard extends StatefulWidget {
     this.mostrarFavorito = false,
     this.esFavorito = false,
     this.onToggleFavorito,
+    this.distanciaKm,
   });
 
   static Color colorDeporte(String deporte) {
@@ -224,6 +226,24 @@ class _CanchaCardState extends State<CanchaCard> {
                 Text(widget.cancha.direccion,
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                     overflow: TextOverflow.ellipsis),
+                if (widget.distanciaKm != null) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Icon(Icons.near_me_rounded, size: 13, color: Colors.green[600]),
+                      const SizedBox(width: 3),
+                      Text(
+                        widget.distanciaKm! < 1
+                            ? '${(widget.distanciaKm! * 1000).toInt()} m de distancia'
+                            : '${widget.distanciaKm!.toStringAsFixed(1)} km de distancia',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green[700],
+                            fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Row(
                   children: [

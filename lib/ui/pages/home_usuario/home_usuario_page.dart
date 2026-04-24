@@ -302,6 +302,7 @@ class _HomeUsuarioState extends State<HomeUsuario> {
                       cancha: cancha,
                       mostrarFavorito: true,
                       esFavorito: _favoritoCtrl.esFavorito(cancha.id),
+                      distanciaKm: _canchaCtrl.distanciaKm(cancha),
                       onToggleFavorito: () {
                         final uid = _authCtrl.usuario.value?.id ?? '';
                         if (uid.isNotEmpty) {
@@ -373,9 +374,11 @@ class _HomeUsuarioState extends State<HomeUsuario> {
                   children: [
                     FiltroChip(
                       label: 'Cerca de mí',
-                      icon: Icons.near_me_outlined,
+                      icon: _canchaCtrl.cargandoUbicacion.value
+                          ? Icons.location_searching
+                          : Icons.near_me_outlined,
                       activo: _canchaCtrl.soloCercanas.value,
-                      onTap: _canchaCtrl.toggleCercanas,
+                      onTap: () => _canchaCtrl.toggleCercanas(),
                     ),
                     const SizedBox(width: 8),
                     _buildChipDeporte(),

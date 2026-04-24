@@ -152,7 +152,10 @@ class _HomeState extends State<Home> {
               return ListView.builder(
                 padding: const EdgeInsets.only(bottom: 24),
                 itemCount: canchas.length,
-                itemBuilder: (_, i) => CanchaCard(cancha: canchas[i]),
+                itemBuilder: (_, i) => Obx(() => CanchaCard(
+                      cancha: canchas[i],
+                      distanciaKm: _canchaCtrl.distanciaKm(canchas[i]),
+                    )),
               );
             }),
           ),
@@ -203,9 +206,11 @@ class _HomeState extends State<Home> {
                   children: [
                     FiltroChip(
                       label: 'Cerca de mí',
-                      icon: Icons.near_me_outlined,
+                      icon: _canchaCtrl.cargandoUbicacion.value
+                          ? Icons.location_searching
+                          : Icons.near_me_outlined,
                       activo: _canchaCtrl.soloCercanas.value,
-                      onTap: _canchaCtrl.toggleCercanas,
+                      onTap: () => _canchaCtrl.toggleCercanas(),
                     ),
                     const SizedBox(width: 8),
                     _buildChipDeporte(),
