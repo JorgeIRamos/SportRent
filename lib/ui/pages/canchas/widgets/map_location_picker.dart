@@ -22,18 +22,59 @@ class MapLocationPicker extends StatefulWidget {
 
 class _MapLocationPickerState extends State<MapLocationPicker> {
   final _mapCtrl = MapController();
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
 
   // Centro predeterminado: Colombia
   late LatLng _center;
   String _direccion = '';
   bool _cargandoDireccion = false;
   bool _cargandoUbicacion = false;
+  bool _buscando = false;
 
   @override
   void initState() {
     super.initState();
     _center = widget.initialPosition ?? const LatLng(4.7110, -74.0721);
     if (widget.initialPosition == null) _irAMiUbicacion(silent: true);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _buscarDireccion() async {
+    final texto = _searchCtrl.text.trim();
+    if (texto.isEmpty) return;
+    _searchFocus.unfocus();
+    setState(() => _buscando = true);
+    try {
+      final resultados = await locationFromAddress(texto);
+      if (resultados.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se encontró la dirección')),
+          );
+        }
+        return;
+      }
+      final loc = resultados.first;
+      final punto = LatLng(loc.latitude, loc.longitude);
+      _mapCtrl.move(punto, 16);
+      setState(() => _center = punto);
+      await _geocodificarCentro(punto);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al buscar la dirección')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _buscando = false);
+    }
   }
 
   Future<void> _irAMiUbicacion({bool silent = false}) async {
@@ -128,6 +169,50 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                 userAgentPackageName: 'com.sportrent.app',
               ),
             ],
+          ),
+
+          // Barra de búsqueda
+          Positioned(
+            top: 12,
+            left: 12,
+            right: 12,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(12),
+              child: TextField(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _buscarDireccion(),
+                decoration: InputDecoration(
+                  hintText: 'Buscar dirección...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.green),
+                  suffixIcon: _buscando
+                      ? Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.green[700]),
+                          ),
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.arrow_forward_rounded,
+                              color: Colors.green),
+                          onPressed: _buscarDireccion,
+                        ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
           ),
 
           // Pin central fijo
