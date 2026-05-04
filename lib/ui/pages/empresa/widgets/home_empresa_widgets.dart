@@ -306,7 +306,7 @@ class NotifItemFromModel extends StatelessWidget {
     if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} min';
     if (diff.inHours < 24) return 'Hace ${diff.inHours} h';
     if (diff.inDays == 1) return 'Ayer';
-    return 'Hace ${diff.inDays} dÃ­as';
+    return 'Hace ${diff.inDays} días';
   }
 
   @override

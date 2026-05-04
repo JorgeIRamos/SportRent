@@ -56,7 +56,7 @@ class ReservasTabUsuario extends StatelessWidget {
     final hoy = DateTime(ahora.year, ahora.month, ahora.day);
     final dia = DateTime(fecha.year, fecha.month, fecha.day);
     if (dia == hoy) return 'Hoy';
-    if (dia == hoy.add(const Duration(days: 1))) return 'MaÃ±ana';
+    if (dia == hoy.add(const Duration(days: 1))) return 'Mañana';
     const meses = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
         'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     return '${fecha.day} ${meses[fecha.month]}';
@@ -167,7 +167,7 @@ class ReservasTabUsuario extends StatelessWidget {
                             Icon(Icons.calendar_today_outlined,
                                 size: 60, color: Colors.grey[300]),
                             const SizedBox(height: 12),
-                            Text('No hay reservas en esta categorÃ­a',
+                            Text('No hay reservas en esta categoría',
                                 style: TextStyle(color: Colors.grey[500], fontSize: 15)),
                           ],
                         ),

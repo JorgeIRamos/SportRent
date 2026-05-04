@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sport_rent/controllers/auth_controller.dart';
 import 'package:sport_rent/controllers/cancha_controller.dart';
@@ -101,11 +101,11 @@ class PerfilTabEmpresa extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            SeccionPerfilEmpresa(titulo: 'InformaciÃ³n de la empresa', items: [
+            SeccionPerfilEmpresa(titulo: 'Información de la empresa', items: [
               InfoItemEmpresa(icono: Icons.business_outlined, label: 'Empresa', valor: nombreEmpresa.isNotEmpty ? nombreEmpresa : 'â€”'),
               InfoItemEmpresa(icono: Icons.badge_outlined, label: 'NIT', valor: nit.isNotEmpty ? nit : 'â€”'),
               InfoItemEmpresa(icono: Icons.person_outline, label: 'Responsable', valor: nombre.isNotEmpty ? nombre : 'â€”'),
-              InfoItemEmpresa(icono: Icons.phone_outlined, label: 'TelÃ©fono', valor: telefono.isNotEmpty ? telefono : 'â€”'),
+              InfoItemEmpresa(icono: Icons.phone_outlined, label: 'Teléfono', valor: telefono.isNotEmpty ? telefono : 'â€”'),
               InfoItemEmpresa(icono: Icons.email_outlined, label: 'Correo', valor: email.isNotEmpty ? email : 'â€”'),
             ]),
 
@@ -132,17 +132,17 @@ class PerfilTabEmpresa extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
-                  OpcionItemEmpresa(icono: Icons.lock_outline, label: 'Cambiar contraseÃ±a', onTap: () {}),
-                  OpcionItemEmpresa(icono: Icons.notifications_outlined, label: 'Preferencias de notificaciÃ³n', onTap: () {}),
+                  OpcionItemEmpresa(icono: Icons.lock_outline, label: 'Cambiar contraseña', onTap: () {}),
+                  OpcionItemEmpresa(icono: Icons.notifications_outlined, label: 'Preferencias de notificación', onTap: () {}),
                   OpcionItemEmpresa(icono: Icons.help_outline, label: 'Ayuda y soporte', onTap: () {}),
-                  OpcionItemEmpresa(icono: Icons.policy_outlined, label: 'TÃ©rminos y condiciones', onTap: () {}),
+                  OpcionItemEmpresa(icono: Icons.policy_outlined, label: 'Términos y condiciones', onTap: () {}),
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () => auth.logout(),
                       icon: Icon(Icons.logout, color: Colors.red[600]),
-                      label: Text('Cerrar sesiÃ³n',
+                      label: Text('Cerrar sesión',
                           style: TextStyle(color: Colors.red[600], fontWeight: FontWeight.bold)),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: Colors.red[200]!),

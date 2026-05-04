@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sport_rent/controllers/empresa_controller.dart';
 import 'package:sport_rent/controllers/reserva_controller.dart';
@@ -47,7 +47,7 @@ class _ReservasTabEmpresaState extends State<ReservasTabEmpresa> {
     }
     final man = hoy.add(const Duration(days: 1));
     if (fecha.year == man.year && fecha.month == man.month && fecha.day == man.day) {
-      return 'MaÃ±ana';
+      return 'Mañana';
     }
     const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     return '${fecha.day} ${meses[fecha.month - 1]}';
@@ -212,7 +212,7 @@ class _ReservasTabEmpresaState extends State<ReservasTabEmpresa> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      'Empresa pendiente de aprobaciÃ³n. No puedes gestionar reservas.',
+                                      'Empresa pendiente de aprobación. No puedes gestionar reservas.',
                                       style: TextStyle(
                                           fontSize: 12,
                                           color: Colors.orange[800],

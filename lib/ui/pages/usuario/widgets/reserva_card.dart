@@ -5,7 +5,7 @@ import 'package:sport_rent/controllers/calificacion_controller.dart';
 import 'package:sport_rent/controllers/cancha_controller.dart';
 import 'package:sport_rent/controllers/reserva_controller.dart';
 import 'package:sport_rent/models/reserva_model.dart';
-import 'package:sport_rent/ui/pages/usuario/sheets/calificacion_sheet.dart';
+import 'package:sport_rent/ui/pages/usuario/widgets/calificacion_sheet.dart';
 
 class ReservaCard extends StatefulWidget {
   final Reserva reserva;

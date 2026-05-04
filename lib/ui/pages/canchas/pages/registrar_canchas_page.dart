@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -33,7 +33,7 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
   LatLng? _selectedLatLng;
   String? _deporteSeleccionado;
 
-  static const _deportes = ['FÃºtbol', 'Baloncesto', 'Tenis', 'PÃ¡del', 'Voleibol', 'BÃ©isbol'];
+  static const _deportes = ['Fútbol', 'Baloncesto', 'Tenis', 'Pádel', 'Voleibol', 'Béisbol'];
 
   final List<String> _fotosUrls = [];
   final List<bool> _subiendo = [];
@@ -153,7 +153,7 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
         _deporteSeleccionado == null) {
       Get.snackbar(
         'Campos incompletos',
-        'Nombre, precio, direcciÃ³n y deporte son obligatorios',
+        'Nombre, precio, dirección y deporte son obligatorios',
         backgroundColor: Colors.red[50],
         colorText: Colors.red[700],
         icon: Icon(Icons.warning_amber_outlined, color: Colors.red[400]),
@@ -163,7 +163,7 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
 
     final precio = double.tryParse(_precioCtrl.text.replaceAll('.', '').replaceAll(',', '.'));
     if (precio == null) {
-      Get.snackbar('Precio invÃ¡lido', 'Ingresa un valor numÃ©rico',
+      Get.snackbar('Precio inválido', 'Ingresa un valor numérico',
           backgroundColor: Colors.red[50], colorText: Colors.red[700]);
       return;
     }
@@ -271,7 +271,7 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
               children: [
                 Icon(Icons.lock_outline, size: 64, color: Colors.orange[700]),
                 const SizedBox(height: 20),
-                Text('Tu empresa aÃºn no ha sido aprobada.',
+                Text('Tu empresa aún no ha sido aprobada.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
                 const SizedBox(height: 10),
@@ -317,17 +317,17 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
               child: Text(
                 _modoEdicion
                     ? 'Modifica los datos de tu cancha deportiva'
-                    : 'Completa la informaciÃ³n de tu cancha deportiva',
+                    : 'Completa la información de tu cancha deportiva',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             ),
             const SizedBox(height: 20),
 
-            _seccionTitulo('InformaciÃ³n bÃ¡sica'),
+            _seccionTitulo('Información básica'),
             customField('Nombre de la cancha', Icons.sports_soccer_outlined,
                 controller: _nombreCtrl),
-            customField('DescripciÃ³n', Icons.description_outlined,
+            customField('Descripción', Icons.description_outlined,
                 controller: _descripcionCtrl),
             customField('Precio por hora (COP)', Icons.attach_money_outlined,
                 controller: _precioCtrl, keyboardType: TextInputType.number),
@@ -506,7 +506,7 @@ class _RegistrarCanchaState extends State<RegistrarCancha> {
         controller: _direccionCtrl,
         onChanged: (_) => setState(() {}),
         decoration: InputDecoration(
-          labelText: 'DirecciÃ³n o nombre del lugar',
+          labelText: 'Dirección o nombre del lugar',
           prefixIcon: Icon(
             Icons.location_on_outlined,
             color: tieneUbicacion ? Colors.green[700] : null,

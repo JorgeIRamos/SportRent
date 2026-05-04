@@ -9,10 +9,10 @@ import 'package:sport_rent/controllers/cancha_controller.dart';
 import 'package:sport_rent/controllers/reserva_controller.dart';
 import 'package:sport_rent/models/reserva_model.dart';
 import 'package:sport_rent/utils/pdf_export_saver.dart';
-import 'package:sport_rent/ui/pages/empresa/tabs/estadisticas/estadisticas_filtros.dart';
-import 'package:sport_rent/ui/pages/empresa/tabs/estadisticas/estadisticas_kpis.dart';
-import 'package:sport_rent/ui/pages/empresa/tabs/estadisticas/estadisticas_charts.dart';
-import 'package:sport_rent/ui/pages/empresa/tabs/estadisticas/estadisticas_horas_table.dart';
+import 'package:sport_rent/ui/pages/empresa/widgets/estadisticas_filtros.dart';
+import 'package:sport_rent/ui/pages/empresa/widgets/estadisticas_kpis.dart';
+import 'package:sport_rent/ui/pages/empresa/widgets/estadisticas_charts.dart';
+import 'package:sport_rent/ui/pages/empresa/widgets/estadisticas_horas_table.dart';
 
 class EstadisticasTab extends StatefulWidget {
   const EstadisticasTab({super.key});

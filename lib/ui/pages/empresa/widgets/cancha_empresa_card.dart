@@ -13,11 +13,11 @@ class CanchaEmpresaCard extends StatelessWidget {
 
   Color _colorFromDeporte(String deporte) {
     switch (deporte.toLowerCase()) {
-      case 'fÃºtbol':
+      case 'fútbol':
         return Colors.green;
       case 'tenis':
         return Colors.teal;
-      case 'pÃ¡del':
+      case 'pádel':
         return Colors.cyan;
       case 'baloncesto':
         return Colors.orange;

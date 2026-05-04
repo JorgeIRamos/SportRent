@@ -4,9 +4,9 @@ import 'package:sport_rent/controllers/auth_controller.dart';
 import 'package:sport_rent/controllers/reserva_controller.dart';
 import 'package:sport_rent/models/cancha_model.dart';
 import 'package:sport_rent/services/reserva_service.dart';
-import 'package:sport_rent/ui/pages/canchas/widgets/disponibilidad/disponibilidad_header.dart';
-import 'package:sport_rent/ui/pages/canchas/widgets/disponibilidad/disponibilidad_grid_horas.dart';
-import 'package:sport_rent/ui/pages/canchas/widgets/disponibilidad/disponibilidad_resumen.dart';
+import 'package:sport_rent/ui/pages/canchas/widgets/disponibilidad_header.dart';
+import 'package:sport_rent/ui/pages/canchas/widgets/disponibilidad_grid_horas.dart';
+import 'package:sport_rent/ui/pages/canchas/widgets/disponibilidad_resumen.dart';
 
 class DisponibilidadCancha extends StatefulWidget {
   final Cancha cancha;

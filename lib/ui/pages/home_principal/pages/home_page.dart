@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sport_rent/controllers/auth_controller.dart';
 import 'package:sport_rent/controllers/cancha_controller.dart';
@@ -16,7 +16,7 @@ class _HomeState extends State<Home> {
   final _authCtrl = Get.find<AuthController>();
   final _buscarCtrl = TextEditingController();
 
-  static const _deportes = ['FÃºtbol', 'Baloncesto', 'Tenis', 'PÃ¡del', 'Voleibol', 'BÃ©isbol'];
+  static const _deportes = ['Fútbol', 'Baloncesto', 'Tenis', 'Pádel', 'Voleibol', 'Béisbol'];
 
   @override
   void initState() {
@@ -93,7 +93,7 @@ class _HomeState extends State<Home> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Tu UbicaciÃ³n',
+                Text('Tu Ubicación',
                     style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
@@ -130,7 +130,7 @@ class _HomeState extends State<Home> {
               : TextButton.icon(
                   onPressed: () => Get.toNamed('/login'),
                   icon: Icon(Icons.login, color: Colors.green[800], size: 18),
-                  label: Text('Iniciar sesiÃ³n',
+                  label: Text('Iniciar sesión',
                       style: TextStyle(
                           color: Colors.green[800],
                           fontWeight: FontWeight.bold,
@@ -205,7 +205,7 @@ class _HomeState extends State<Home> {
             child: Obx(() => Row(
                   children: [
                     FiltroChip(
-                      label: 'Cerca de mÃ­',
+                      label: 'Cerca de mí',
                       icon: _canchaCtrl.cargandoUbicacion.value
                           ? Icons.location_searching
                           : Icons.near_me_outlined,
