@@ -195,7 +195,7 @@ class _ReservasTabEmpresaState extends State<ReservasTabEmpresa> {
                                   children: [
                                     Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey[600]),
                                     const SizedBox(width: 6),
-                                    Expanded(child: Text('${_formatFecha(r.fecha)} Â· ${r.horaInicio} â€“ ${r.horaFin}',
+                                    Expanded(child: Text('${_formatFecha(r.fecha)} · ${r.horaInicio} – ${r.horaFin}',
                                         style: TextStyle(fontSize: 12, color: Colors.grey[600]))),
                                   ],
                                 ),

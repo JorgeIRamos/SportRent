@@ -201,7 +201,7 @@ class _ReservaCardState extends State<ReservaCard> {
                         size: 14, color: Colors.grey[500]),
                     const SizedBox(width: 6),
                     Text(
-                      '${widget.formatFecha(widget.reserva.fecha)}  Â·  ${widget.reserva.horaInicio} â€" ${widget.reserva.horaFin}',
+                      '${widget.formatFecha(widget.reserva.fecha)}  ·  ${widget.reserva.horaInicio} – ${widget.reserva.horaFin}',
                       style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                     ),
                     const Spacer(),
